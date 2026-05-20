@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>T.MAN PHARMA - RD Document System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg-page:            #f0f2f5;
+        --bg-card:            #ffffff;
+        --bg-section:         #f9f9f9;
+        --bg-hover:           #fafafa;
+        --bg-station-header:  #f0f4ff;
+        --bg-table-head:      #f5f5f5;
+        --bg-input:           transparent;
+
+        --text-primary:       #1a1a2e;
+        --text-secondary:     #555;
+        --text-muted:         #888;
+        --text-placeholder:   #aaa;
+        --text-label:         #333;
+
+        --border:             #aaa;
+        --border-light:       #ddd;
+        --border-table:       #e0e0e0;
+        --border-divider:     #eee;
+
+        /* Blue accent (Stability) */
+        --accent-blue:        #1a237e;
+        --accent-blue-hover:  #283593;
+        --accent-blue-light:  #e8eaf6;
+        --accent-blue-mid:    #c5cae9;
+        --accent-blue-deep:   #9fa8da;
+
+        /* Green accent (Dissolution) */
+        --accent-green:       #1b5e20;
+        --accent-green-hover: #2e7d32;
+        --accent-green-light: #e8f5e9;
+        --accent-green-mid:   #c8e6c9;
+
+        /* Orange accent (Quality) */
+        --accent-orange:      #e65100;
+        --accent-orange-hover:#bf360c;
+        --accent-orange-light:#fff3e0;
+
+        /* Shared UI */
+        --nav-start:          #1a237e;
+        --nav-end:            #283593;
+        --nav-text:           rgba(255,255,255,0.85);
+        --nav-active-bg:      rgba(255,255,255,0.15);
+
+        --shadow-card:        0 2px 12px rgba(0,0,0,0.08);
+        --shadow-card-hover:  0 6px 20px rgba(0,0,0,0.12);
+        --shadow-nav:         0 2px 8px rgba(0,0,0,0.3);
+        --shadow-toast:       0 4px 12px rgba(0,0,0,0.2);
+
+        --result-pass-bg:     #e8f5e9;
+        --result-pass-text:   #2e7d32;
+        --result-fail-bg:     #ffebee;
+        --result-fail-text:   #c62828;
+        --badge-del-bg:       #ffebee;
+        --badge-del-text:     #c62828;
+        --badge-view-bg:      #e8eaf6;
+        --badge-view-text:    #1a237e;
+      }
+
+      html.dark {
+        --bg-page:            #10121a;
+        --bg-card:            #1a1d2b;
+        --bg-section:         #21253a;
+        --bg-hover:           #1e2236;
+        --bg-station-header:  #1c2240;
+        --bg-table-head:      #202438;
+        --bg-input:           transparent;
+
+        --text-primary:       #dde1f5;
+        --text-secondary:     #8892b0;
+        --text-muted:         #566080;
+        --text-placeholder:   #455070;
+        --text-label:         #b0b8d8;
+
+        --border:             #38405e;
+        --border-light:       #272d46;
+        --border-table:       #252b40;
+        --border-divider:     #272d46;
+
+        --accent-blue:        #7986cb;
+        --accent-blue-hover:  #9fa8da;
+        --accent-blue-light:  #1c2044;
+        --accent-blue-mid:    #272d5a;
+        --accent-blue-deep:   #3949ab;
+
+        --accent-green:       #66bb6a;
+        --accent-green-hover: #81c784;
+        --accent-green-light: #1a2d1b;
+        --accent-green-mid:   #1e3620;
+
+        --accent-orange:      #ff8a65;
+        --accent-orange-hover:#ffab91;
+        --accent-orange-light:#2a1508;
+
+        --nav-start:          #0d1140;
+        --nav-end:            #141760;
+        --nav-text:           rgba(210,215,255,0.85);
+        --nav-active-bg:      rgba(255,255,255,0.1);
+
+        --shadow-card:        0 2px 16px rgba(0,0,0,0.5);
+        --shadow-card-hover:  0 6px 24px rgba(0,0,0,0.6);
+        --shadow-nav:         0 2px 8px rgba(0,0,0,0.6);
+        --shadow-toast:       0 4px 16px rgba(0,0,0,0.5);
+
+        --result-pass-bg:     #1a2d1b;
+        --result-pass-text:   #81c784;
+        --result-fail-bg:     #2d1217;
+        --result-fail-text:   #ef9a9a;
+        --badge-del-bg:       #2d1217;
+        --badge-del-text:     #ef9a9a;
+        --badge-view-bg:      #1c2044;
+        --badge-view-text:    #7986cb;
+      }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        font-family: 'Sarabun', sans-serif;
+        background: var(--bg-page);
+        color: var(--text-primary);
+        transition: background 0.25s, color 0.25s;
+      }
+
+      @media print {
+        nav, .no-print { display: none !important; }
+        body { background: white !important; }
+        .form-card { box-shadow: none !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
