@@ -6,7 +6,14 @@ $uri = rtrim($uri, '/');
 $method = $_SERVER['REQUEST_METHOD'];
 
 // Extract base path after /api/
-if (preg_match('#/api/(stability|dissolution|quality_check)(?:/(\d+))?#', $uri, $m)) {
+if (preg_match('#/api/(next_run_number)$#', $uri, $m)) {
+    $resource = $m[1];
+    $id = null;
+    require __DIR__ . "/api/{$resource}.php";
+} elseif (preg_match('#/api/upload(?:/(\d+))?$#', $uri, $m)) {
+    $id = isset($m[1]) ? (int)$m[1] : null;
+    require __DIR__ . '/api/upload.php';
+} elseif (preg_match('#/api/(stability|dissolution|quality_check)(?:/(\d+))?#', $uri, $m)) {
     $resource = $m[1];
     $id = isset($m[2]) ? (int)$m[2] : null;
     require __DIR__ . "/api/{$resource}.php";

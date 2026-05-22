@@ -1,20 +1,19 @@
 <template>
   <div>
     <div class="page-header">
-      <h1>ระบบจัดการเอกสาร R&D</h1>
+      <h1><span class="sl">//</span> ระบบจัดการเอกสาร R&D</h1>
       <p>T.MAN PHARMA CO., LTD. — แผนกวิจัยและพัฒนา</p>
     </div>
-
     <div class="form-cards">
-      <div class="form-card" @click="$router.push('/stability')">
-        <div class="form-icon icon-blue">📋</div>
+      <div class="form-card" @click="$router.push('/quality-check')">
+        <div class="form-icon icon-orange">🔬</div>
         <div class="form-info">
-          <div class="form-code code-blue">F-RD-FD-012</div>
-          <div class="form-title">แบบฟอร์มการศึกษาความคงสภาพของผลิตภัณฑ์</div>
-          <div class="form-subtitle">Stability Program</div>
+          <div class="form-code code-orange">F-RD-FD-005</div>
+          <div class="form-title">แบบฟอร์มการตรวจสอบคุณภาพวัตถุดิบและเภสัชภัณฑ์</div>
+          <div class="form-subtitle">ในขั้นตอนการวิจัยและพัฒนา</div>
         </div>
-        <div class="form-count">{{ counts.stability }} รายการ</div>
-        <button class="btn-new btn-blue">+ สร้างใหม่</button>
+        <div class="form-count">{{ counts.qualityCheck }} รายการ</div>
+        <button class="btn-new btn-orange">+ สร้างใหม่</button>
       </div>
 
       <div class="form-card" @click="$router.push('/dissolution')">
@@ -28,78 +27,158 @@
         <button class="btn-new btn-green">+ สร้างใหม่</button>
       </div>
 
-      <div class="form-card" @click="$router.push('/quality-check')">
-        <div class="form-icon icon-orange">🔬</div>
+
+      <div class="form-card" @click="$router.push('/stability')">
+        <div class="form-icon icon-blue">📋</div>
         <div class="form-info">
-          <div class="form-code code-orange">F-RD-FD-005</div>
-          <div class="form-title">แบบฟอร์มการตรวจสอบคุณภาพวัตถุดิบและเภสัชภัณฑ์</div>
-          <div class="form-subtitle">ในขั้นตอนการวิจัยและพัฒนา</div>
+          <div class="form-code code-blue">F-RD-FD-012</div>
+          <div class="form-title">แบบฟอร์มการศึกษาความคงสภาพของผลิตภัณฑ์</div>
+          <div class="form-subtitle">Stability Program</div>
         </div>
-        <div class="form-count">{{ counts.qualityCheck }} รายการ</div>
-        <button class="btn-new btn-orange">+ สร้างใหม่</button>
+        <div class="form-count">{{ counts.stability }} รายการ</div>
+        <button class="btn-new btn-blue">+ สร้างใหม่</button>
       </div>
+
     </div>
 
     <!-- Recent Records -->
     <div class="recent-section">
-      <h2>รายการล่าสุด</h2>
-
-      <div class="recent-group">
-        <h3>Stability Program (F-RD-FD-012)</h3>
-        <div v-if="stability.length === 0" class="empty">ยังไม่มีข้อมูล</div>
-        <table v-else class="data-table">
-          <thead><tr><th>ID</th><th>ชื่อผลิตภัณฑ์</th><th>วันที่สร้าง</th><th>จัดการ</th></tr></thead>
-          <tbody>
-            <tr v-for="r in stability" :key="r.id">
-              <td>#{{ r.id }}</td>
-              <td>{{ r.product_name || '-' }}</td>
-              <td>{{ formatDate(r.created_at) }}</td>
-              <td>
-                <button class="btn-sm btn-view" @click.stop="$router.push(`/stability/${r.id}`)">เปิด</button>
-                <button class="btn-sm btn-del" @click.stop="deleteRecord('stability', r.id)">ลบ</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="recent-header">
+        <h2><span class="sl">//</span> รายการล่าสุด</h2>
+        <button class="btn-all-records" @click="$router.push('/records')">ดูข้อมูลทั้งหมด →</button>
       </div>
 
       <div class="recent-group">
-        <h3>Dissolution Profile (F-RD-FD-006)</h3>
-        <div v-if="dissolution.length === 0" class="empty">ยังไม่มีข้อมูล</div>
-        <table v-else class="data-table">
-          <thead><tr><th>ID</th><th>เลขที่ใบส่งวิเคราะห์</th><th>วันที่สร้าง</th><th>จัดการ</th></tr></thead>
-          <tbody>
-            <tr v-for="r in dissolution" :key="r.id">
-              <td>#{{ r.id }}</td>
-              <td>{{ r.analysis_number || '-' }}</td>
-              <td>{{ formatDate(r.created_at) }}</td>
-              <td>
-                <button class="btn-sm btn-view" @click.stop="$router.push(`/dissolution/${r.id}`)">เปิด</button>
-                <button class="btn-sm btn-del" @click.stop="deleteRecord('dissolution', r.id)">ลบ</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="recent-group">
-        <h3>Quality Check (F-RD-FD-005)</h3>
+        <div class="group-header">
+          <h3><span class="sl">//</span> Quality Check <span class="form-code-tag">F-RD-FD-005</span></h3>
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input v-model="qcSearch" class="search-input" type="text" placeholder="ค้นหาชื่อผลิตภัณฑ์..." @click.stop />
+          </div>
+        </div>
         <div v-if="qualityCheck.length === 0" class="empty">ยังไม่มีข้อมูล</div>
-        <table v-else class="data-table">
-          <thead><tr><th>ID</th><th>ชื่อผลิตภัณฑ์</th><th>วันที่สร้าง</th><th>จัดการ</th></tr></thead>
-          <tbody>
-            <tr v-for="r in qualityCheck" :key="r.id">
-              <td>#{{ r.id }}</td>
-              <td>{{ r.product_name || '-' }}</td>
-              <td>{{ formatDate(r.created_at) }}</td>
-              <td>
-                <button class="btn-sm btn-view" @click.stop="$router.push(`/quality-check/${r.id}`)">เปิด</button>
-                <button class="btn-sm btn-del" @click.stop="deleteRecord('qualityCheck', r.id)">ลบ</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <template v-else>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>ชื่อผลิตภัณฑ์</th>
+                <th style="width:110px">PDF อัปโหลด</th>
+                <th>วันที่สร้าง</th>
+                <th>จัดการ</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="r in filteredQualityCheck" :key="r.id">
+                <td>#{{ r.id }}</td>
+                <td>{{ r.product_name || '-' }}</td>
+                <td class="td-progress">
+                  <template v-if="qcProgressMap[r.id]?.total > 0">
+                    <div class="prog-label">
+                      {{ qcProgressMap[r.id].uploaded }}/{{ qcProgressMap[r.id].total }}
+                      <span class="prog-pct">{{ qcProgressMap[r.id].pct }}%</span>
+                    </div>
+                    <div class="prog-track">
+                      <div
+                        class="prog-fill"
+                        :class="{ 'prog-done': qcProgressMap[r.id].pct === 100 }"
+                        :style="{ width: qcProgressMap[r.id].pct + '%' }"
+                      ></div>
+                    </div>
+                  </template>
+                  <span v-else class="prog-none">ยังไม่ได้เลือก</span>
+                </td>
+                <td>{{ formatDate(r.created_at) }}</td>
+                <td>
+                  <button v-if="role === 'tester'" class="btn-sm btn-test" @click.stop="$router.push(`/quality-check/${r.id}/test`)">ทดสอบ</button>
+                  <template v-else>
+                    <button class="btn-sm btn-view" @click.stop="$router.push(`/quality-check/${r.id}`)">เปิด</button>
+                    <button class="btn-sm btn-del" @click.stop="deleteRecord('qualityCheck', r.id)">ลบ</button>
+                  </template>
+                </td>
+              </tr>
+              <tr v-if="filteredQualityCheck.length === 0">
+                <td colspan="5" class="empty">ไม่พบรายการที่ค้นหา</td>
+              </tr>
+            </tbody>
+          </table>
+        </template>
       </div>
+
+      <div class="recent-group">
+        <div class="group-header">
+          <h3><span class="sl">//</span> Dissolution Profile <span class="form-code-tag">F-RD-FD-006</span></h3>
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input v-model="dissolutionSearch" class="search-input" type="text" placeholder="ค้นหาเลขที่ใบส่งวิเคราะห์..." @click.stop />
+          </div>
+        </div>
+        <div v-if="dissolution.length === 0" class="empty">ยังไม่มีข้อมูล</div>
+        <template v-else>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>เลขที่ใบส่งวิเคราะห์</th>
+                <th>วันที่สร้าง</th>
+                <th>จัดการ</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="r in filteredDissolution" :key="r.id">
+                <td>#{{ r.id }}</td>
+                <td>{{ r.analysis_number || '-' }}</td>
+                <td>{{ formatDate(r.created_at) }}</td>
+                <td>
+                  <button class="btn-sm btn-view" @click.stop="$router.push(`/dissolution/${r.id}`)">เปิด</button>
+                  <button v-if="role !== 'tester'" class="btn-sm btn-del" @click.stop="deleteRecord('dissolution', r.id)">ลบ</button>
+                </td>
+              </tr>
+              <tr v-if="filteredDissolution.length === 0">
+                <td colspan="4" class="empty">ไม่พบรายการที่ค้นหา</td>
+              </tr>
+            </tbody>
+          </table>
+        </template>
+      </div>
+
+      <div class="recent-group">
+        <div class="group-header">
+          <h3><span class="sl">//</span> Stability Program <span class="form-code-tag">F-RD-FD-012</span></h3>
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input v-model="stabilitySearch" class="search-input" type="text" placeholder="ค้นหาชื่อผลิตภัณฑ์..." @click.stop />
+          </div>
+        </div>
+        <div v-if="stability.length === 0" class="empty">ยังไม่มีข้อมูล</div>
+        <template v-else>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>ชื่อผลิตภัณฑ์</th>
+                <th>วันที่สร้าง</th>
+                <th>จัดการ</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="r in filteredStability" :key="r.id">
+                <td>#{{ r.id }}</td>
+                <td>{{ r.product_name || '-' }}</td>
+                <td>{{ formatDate(r.created_at) }}</td>
+                <td>
+                  <button class="btn-sm btn-view" @click.stop="$router.push(`/stability/${r.id}`)">เปิด</button>
+                  <button v-if="role !== 'tester'" class="btn-sm btn-del" @click.stop="deleteRecord('stability', r.id)">ลบ</button>
+                </td>
+              </tr>
+              <tr v-if="filteredStability.length === 0">
+                <td colspan="4" class="empty">ไม่พบรายการที่ค้นหา</td>
+              </tr>
+            </tbody>
+          </table>
+        </template>
+      </div>
+
     </div>
   </div>
 </template>
@@ -107,10 +186,51 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { api } from '../api/index.js'
+import { useRole } from '../composables/useRole.js'
 
 const stability = ref([])
 const dissolution = ref([])
 const qualityCheck = ref([])
+const { role } = useRole()
+
+const qcSearch = ref('')
+const dissolutionSearch = ref('')
+const stabilitySearch = ref('')
+
+const filteredQualityCheck = computed(() => {
+  const q = qcSearch.value.trim().toLowerCase()
+  if (!q) return qualityCheck.value
+  return qualityCheck.value.filter(r => (r.product_name || '').toLowerCase().includes(q))
+})
+
+const filteredDissolution = computed(() => {
+  const q = dissolutionSearch.value.trim().toLowerCase()
+  if (!q) return dissolution.value
+  return dissolution.value.filter(r => (r.analysis_number || '').toLowerCase().includes(q))
+})
+
+const filteredStability = computed(() => {
+  const q = stabilitySearch.value.trim().toLowerCase()
+  if (!q) return stability.value
+  return stability.value.filter(r => (r.product_name || '').toLowerCase().includes(q))
+})
+
+function qcProgress(r) {
+  let params = r.params
+  if (typeof params === 'string') { try { params = JSON.parse(params) } catch { params = {} } }
+  let customParams = r.custom_params
+  if (typeof customParams === 'string') { try { customParams = JSON.parse(customParams) } catch { customParams = [] } }
+  const total = (params ? Object.values(params).filter(Boolean).length : 0)
+              + ((customParams || []).filter(cp => cp.checked).length)
+  const uploaded = Number(r.upload_count) || 0
+  return { uploaded, total, pct: total > 0 ? Math.min(100, Math.round((uploaded / total) * 100)) : 0 }
+}
+
+const qcProgressMap = computed(() => {
+  const map = {}
+  qualityCheck.value.forEach(r => { map[r.id] = qcProgress(r) })
+  return map
+})
 
 const counts = computed(() => ({
   stability: stability.value.length,
@@ -138,71 +258,380 @@ async function deleteRecord(type, id) {
 
 function formatDate(dt) {
   if (!dt) return '-'
-  return new Date(dt).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' })
+  const m = String(dt).match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (m) return `${m[3]}/${m[2]}/${m[1]}`
+  const d = new Date(dt)
+  if (isNaN(d.getTime())) return '-'
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
 }
 
 onMounted(loadAll)
 </script>
 
 <style scoped>
-.page-header { text-align: center; padding: 32px 0 24px; }
-.page-header h1 { font-size: 28px; font-weight: 700; color: var(--accent-blue); }
-.page-header p { color: var(--text-muted); margin-top: 4px; }
-
-.form-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 40px; }
-.form-card {
-  background: var(--bg-card);
-  border-radius: 12px; padding: 20px;
-  box-shadow: var(--shadow-card); cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s, background 0.25s;
-  display: flex; flex-direction: column; gap: 10px;
-  border: 1px solid var(--border-divider);
+/* ── Slash prefix ── */
+.sl {
+  color: var(--c-teal);
+  margin-right: 4px;
+  font-weight: 700;
 }
-.form-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-card-hover); }
 
-.form-icon { width: 48px; height: 48px; border-radius: 12px; font-size: 24px; display: flex; align-items: center; justify-content: center; }
-.icon-blue  { background: var(--accent-blue-light); }
-.icon-green { background: var(--accent-green-light); }
-.icon-orange{ background: var(--accent-orange-light); }
+/* ── Page header ── */
+.page-header {
+  text-align: center;
+  padding: 32px 0 24px;
+}
 
-.form-code { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 4px; display: inline-block; }
-.code-blue   { color: var(--accent-blue);   background: var(--accent-blue-light); }
-.code-green  { color: var(--accent-green);  background: var(--accent-green-light); }
-.code-orange { color: var(--accent-orange); background: var(--accent-orange-light); }
+.page-header h1 {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.3px;
+}
 
-.form-title    { font-size: 14px; font-weight: 600; color: var(--text-label); margin-top: 4px; }
-.form-subtitle { font-size: 12px; color: var(--text-muted); }
-.form-count    { font-size: 13px; color: var(--text-secondary); }
+.page-header p {
+  color: var(--text3);
+  margin-top: 6px;
+  font-size: 13px;
+}
 
-.btn-new { border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-family: inherit; font-size: 13px; color: white; }
-.btn-blue   { background: var(--accent-blue); }
-.btn-blue:hover   { background: var(--accent-blue-hover); }
-.btn-green  { background: var(--accent-green); }
-.btn-green:hover  { background: var(--accent-green-hover); }
-.btn-orange { background: var(--accent-orange); }
-.btn-orange:hover { background: var(--accent-orange-hover); }
+/* ── Form cards ── */
+.form-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 40px;
+}
 
-.recent-section h2 { font-size: 20px; font-weight: 700; color: var(--accent-blue); margin-bottom: 20px; }
+.form-card {
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: transform 0.18s, box-shadow 0.18s, background 0.25s;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--border);
+}
+
+.form-card:nth-child(1) {
+  border-top-color: var(--accent-blue);
+}
+
+.form-card:nth-child(2) {
+  border-top-color: var(--accent-green);
+}
+
+.form-card:nth-child(3) {
+  border-top-color: var(--accent-orange);
+}
+
+.form-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+}
+
+.form-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-md);
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-blue {
+  background: var(--accent-blue-light);
+}
+
+.icon-green {
+  background: var(--accent-green-light);
+}
+
+.icon-orange {
+  background: var(--accent-orange-light);
+}
+
+.form-code {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+  display: inline-block;
+  letter-spacing: 0.3px;
+}
+
+.code-blue {
+  color: var(--accent-blue);
+  background: var(--accent-blue-light);
+}
+
+.code-green {
+  color: var(--accent-green);
+  background: var(--accent-green-light);
+}
+
+.code-orange {
+  color: var(--accent-orange);
+  background: var(--accent-orange-light);
+}
+
+.form-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.form-subtitle {
+  font-size: 12px;
+  color: var(--text3);
+  line-height: 1.4;
+}
+
+.form-count {
+  font-size: 13px;
+  color: var(--text2);
+  font-weight: 500;
+}
+
+.btn-new {
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  transition: opacity 0.2s, transform 0.15s;
+  background: var(--c-teal);
+  color: var(--c-dark);
+}
+
+.btn-new:hover {
+  opacity: 0.85;
+  transform: translateY(-1px);
+}
+
+/* Keep per-form identity via card top border, not button color */
+
+/* ── Recent section ── */
+.recent-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.recent-section h2 {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+
+.btn-all-records {
+  background: var(--c-teal);
+  color: var(--c-dark);
+  border: none;
+  padding: 8px 18px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  transition: opacity 0.2s;
+}
+
+.btn-all-records:hover {
+  opacity: 0.85;
+}
+
 .recent-group {
-  background: var(--bg-card);
-  border-radius: 10px; padding: 20px; margin-bottom: 16px;
-  box-shadow: var(--shadow-card);
-  border: 1px solid var(--border-divider);
+  background: var(--surface);
+  border-radius: var(--r-md);
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+  overflow: hidden;
   transition: background 0.25s;
 }
-.recent-group h3 { font-size: 15px; font-weight: 600; color: var(--text-label); margin-bottom: 12px; border-bottom: 1px solid var(--border-divider); padding-bottom: 8px; }
-.empty { color: var(--text-placeholder); font-size: 14px; padding: 12px 0; }
 
-.data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-.data-table th { text-align: left; padding: 8px 12px; background: var(--bg-table-head); font-weight: 600; color: var(--text-secondary); }
-.data-table td { padding: 8px 12px; border-bottom: 1px solid var(--border-divider); color: var(--text-label); }
-.data-table tr:hover td { background: var(--bg-hover); }
+.group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+}
 
-.btn-sm { padding: 4px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-family: inherit; margin-right: 4px; transition: background 0.15s; }
-.btn-view { background: var(--badge-view-bg); color: var(--badge-view-text); }
-.btn-view:hover { background: var(--accent-blue-mid); }
-.btn-del  { background: var(--badge-del-bg);  color: var(--badge-del-text); }
-.btn-del:hover  { background: var(--result-fail-bg); }
+.recent-group h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+  padding: 0;
+  border-bottom: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+}
 
-@media (max-width: 768px) { .form-cards { grid-template-columns: 1fr; } }
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 4px 10px;
+  min-width: 220px;
+  transition: border-color 0.18s;
+}
+
+.search-box:focus-within {
+  border-color: var(--c-teal);
+}
+
+.search-icon {
+  font-size: 13px;
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+.search-input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text);
+  width: 100%;
+}
+
+.search-input::placeholder {
+  color: var(--text3);
+}
+
+.form-code-tag {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 20px;
+  background: var(--border);
+  color: var(--text2);
+}
+
+.empty {
+  color: var(--text3);
+  font-size: 14px;
+  padding: 20px 16px;
+  text-align: center;
+}
+
+/* ── Table ── */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.data-table th {
+  text-align: left;
+  padding: 9px 16px;
+  font-weight: 600;
+  color: var(--text2);
+  font-size: 12px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.data-table td {
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  vertical-align: middle;
+}
+
+.data-table tr:last-child td {
+  border-bottom: none;
+}
+
+.data-table tr:hover td {
+  background: var(--surface2);
+}
+
+.data-table td:first-child {
+  color: var(--text3);
+  font-size: 12px;
+}
+
+/* ── Action buttons ── */
+.btn-sm {
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+  margin-right: 4px;
+  font-weight: 500;
+  transition: background 0.15s, border-color 0.15s;
+  background: var(--surface);
+}
+
+.btn-view {
+  color: var(--c-blue);
+  border-color: var(--c-blue);
+}
+
+.btn-view:hover {
+  background: #eff6ff;
+}
+
+.btn-del {
+  color: var(--c-red);
+  border-color: var(--c-red);
+}
+
+.btn-del:hover {
+  background: #fff1f2;
+}
+
+.btn-test { color: #059669; border-color: #34d399; }
+.btn-test:hover { background: rgba(52,211,153,0.12); }
+
+/* ── QC upload progress bar ── */
+.td-progress { min-width: 100px; }
+.prog-label {
+  font-size: 12px; font-weight: 600; color: var(--text2);
+  margin-bottom: 4px; display: flex; align-items: center; gap: 5px;
+}
+.prog-pct { color: var(--text3); font-weight: 400; font-size: 11px; }
+.prog-track {
+  height: 5px; background: var(--border); border-radius: 3px; overflow: hidden;
+}
+.prog-fill {
+  height: 100%; background: var(--accent-orange); border-radius: 3px;
+  transition: width 0.4s ease;
+}
+.prog-fill.prog-done { background: var(--accent-green); }
+.prog-none { font-size: 12px; color: var(--text3); }
+
+@media (max-width: 768px) {
+  .form-cards {
+    grid-template-columns: 1fr;
+  }
+}
 </style>

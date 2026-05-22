@@ -1,5 +1,9 @@
 <?php
-define('DB_PATH', __DIR__ . '/database/pharma.db');
+define('DB_HOST', 'localhost');
+define('DB_PORT', '3308');
+define('DB_NAME', 'rd_document');
+define('DB_USER', 'root');
+define('DB_PASS', '');
 
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');

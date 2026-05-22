@@ -11,7 +11,7 @@ switch ($method) {
             $row['form_data'] = json_decode($row['form_data'], true);
             jsonResponse($row);
         } else {
-            $stmt = $db->query("SELECT id, json_extract(form_data,'$.analysis_number') as analysis_number, created_at FROM dissolution_forms ORDER BY created_at DESC");
+            $stmt = $db->query("SELECT id, JSON_UNQUOTE(JSON_EXTRACT(form_data,'$.analysis_number')) as analysis_number, JSON_UNQUOTE(JSON_EXTRACT(form_data,'$.our_products[0].product_name')) as product_name, JSON_UNQUOTE(JSON_EXTRACT(form_data,'$.our_products[0].lot_no')) as lot_no, JSON_UNQUOTE(JSON_EXTRACT(form_data,'$.send_date')) as send_date, JSON_UNQUOTE(JSON_EXTRACT(form_data,'$.f2_result')) as f2_result, JSON_UNQUOTE(JSON_EXTRACT(form_data,'$.sender')) as sender, JSON_UNQUOTE(JSON_EXTRACT(form_data,'$.observed_by')) as observed_by, COALESCE(JSON_LENGTH(JSON_EXTRACT(form_data,'$.our_products')),1) as our_products_count, COALESCE(JSON_LENGTH(JSON_EXTRACT(form_data,'$.original_products')),1) as original_products_count, created_at FROM dissolution_forms ORDER BY created_at DESC");
             jsonResponse($stmt->fetchAll());
         }
         break;

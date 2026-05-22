@@ -11,7 +11,7 @@ switch ($method) {
             $row['form_data'] = json_decode($row['form_data'], true);
             jsonResponse($row);
         } else {
-            $stmt = $db->query("SELECT id, json_extract(form_data,'$.products[0].product_name') as product_name, created_at FROM stability_forms ORDER BY created_at DESC");
+            $stmt = $db->query("SELECT id, JSON_UNQUOTE(JSON_EXTRACT(form_data,'$.products[0].product_name')) as product_name, created_at FROM stability_forms ORDER BY created_at DESC");
             jsonResponse($stmt->fetchAll());
         }
         break;

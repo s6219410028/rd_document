@@ -5,57 +5,110 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>T.MAN PHARMA - RD Document System</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <style>
+      /* ── RD-Stock Design Tokens ── */
       :root {
-        --bg-page:            #f0f2f5;
-        --bg-card:            #ffffff;
-        --bg-section:         #f9f9f9;
-        --bg-hover:           #fafafa;
+        /* Surfaces */
+        --bg:         #f4f6f9;
+        --surface:    #ffffff;
+        --surface2:   #f1f3f7;
+        --border:     #e2e6ed;
+        --border2:    #d0d5dd;
+
+        /* Text */
+        --text:       #111827;
+        --text2:      #4b5563;
+        --text3:      #9ca3af;
+        --c-dark:     #111827;
+        --c-muted:    #718096;
+
+        /* Inline colour palette */
+        --c-teal:     #00e5a0;
+        --c-blue:     #3b82f6;
+        --c-amber:    #f59e0b;
+        --c-red:      #ef4444;
+        --c-purple:   #8b5cf6;
+        --c-indigo:   #6366f1;
+
+        /* Font */
+        --font:       'Noto Sans Thai', system-ui, sans-serif;
+
+        /* Border radii */
+        --r-sm: 6px;
+        --r-md: 8px;
+        --r-lg: 12px;
+
+        /* Shadows */
+        --shadow-sm:  0 1px 3px rgba(0,0,0,.06);
+        --shadow-md:  0 4px 12px rgba(0,0,0,.08);
+        --shadow-lg:  0 8px 24px rgba(0,0,0,.12);
+
+        /* ── Compatibility aliases for form pages ── */
+        --bg-page:            var(--bg);
+        --bg-card:            var(--surface);
+        --bg-section:         var(--surface2);
+        --bg-hover:           #f7f8fa;
         --bg-station-header:  #f0f4ff;
-        --bg-table-head:      #f5f5f5;
+        --bg-table-head:      #f8f9fa;
         --bg-input:           transparent;
 
-        --text-primary:       #1a1a2e;
-        --text-secondary:     #555;
-        --text-muted:         #888;
-        --text-placeholder:   #aaa;
-        --text-label:         #333;
+        --text-primary:       var(--c-dark);
+        --text-secondary:     var(--text2);
+        --text-muted:         var(--c-muted);
+        --text-placeholder:   var(--text3);
+        --text-label:         var(--c-dark);
 
-        --border:             #aaa;
-        --border-light:       #ddd;
-        --border-table:       #e0e0e0;
-        --border-divider:     #eee;
+        --border-light:       var(--border);
+        --border-table:       #e2e6ed;
+        --border-divider:     #eaecf0;
 
-        /* Blue accent (Stability) */
+        /* Form-type accent colours (per-form theming) */
         --accent-blue:        #1a237e;
         --accent-blue-hover:  #283593;
         --accent-blue-light:  #e8eaf6;
         --accent-blue-mid:    #c5cae9;
         --accent-blue-deep:   #9fa8da;
 
-        /* Green accent (Dissolution) */
         --accent-green:       #1b5e20;
         --accent-green-hover: #2e7d32;
         --accent-green-light: #e8f5e9;
         --accent-green-mid:   #c8e6c9;
 
-        /* Orange accent (Quality) */
         --accent-orange:      #e65100;
         --accent-orange-hover:#bf360c;
         --accent-orange-light:#fff3e0;
 
-        /* Shared UI */
+        /* Nav */
         --nav-start:          #1a237e;
         --nav-end:            #283593;
         --nav-text:           rgba(255,255,255,0.85);
         --nav-active-bg:      rgba(255,255,255,0.15);
 
-        --shadow-card:        0 2px 12px rgba(0,0,0,0.08);
-        --shadow-card-hover:  0 6px 20px rgba(0,0,0,0.12);
-        --shadow-nav:         0 2px 8px rgba(0,0,0,0.3);
-        --shadow-toast:       0 4px 12px rgba(0,0,0,0.2);
+        /* Sidebar */
+        --sb-bg:              #ffffff;
+        --sb-border:          #e2e6ed;
+        --sb-text:            #6b7280;
+        --sb-text-hover:      #111827;
+        --sb-hover-bg:        rgba(0,0,0,0.04);
+        --sb-active-bg:       rgba(99,102,241,0.09);
+        --sb-active-border:   #6366f1;
+        --sb-active-text:     #6366f1;
+        --sb-brand-bg:        #6366f1;
+        --sb-brand-name:      #111827;
+        --sb-brand-sub:       #9ca3af;
+        --sb-divider:         #e2e6ed;
+        --sb-bottom-text:     #9ca3af;
+        --sb-role-bg:         rgba(0,0,0,0.04);
+        --sb-role-border:     #e2e6ed;
 
+        /* Shadows (aliases) */
+        --shadow-card:        var(--shadow-sm);
+        --shadow-card-hover:  var(--shadow-md);
+        --shadow-nav:         0 2px 8px rgba(0,0,0,0.3);
+        --shadow-toast:       var(--shadow-lg);
+
+        /* Result / badge colours */
         --result-pass-bg:     #e8f5e9;
         --result-pass-text:   #2e7d32;
         --result-fail-bg:     #ffebee;
@@ -66,22 +119,30 @@
         --badge-view-text:    #1a237e;
       }
 
+      /* ── Dark mode ── */
       html.dark {
+        --bg:         #10121a;
+        --surface:    #1a1d2b;
+        --surface2:   #21253a;
+        --border:     #38405e;
+        --border2:    #2f3655;
+        --text:       #dde1f5;
+        --text2:      #8892b0;
+        --text3:      #566080;
+        --c-dark:     #dde1f5;
+        --c-muted:    #566080;
+
         --bg-page:            #10121a;
         --bg-card:            #1a1d2b;
         --bg-section:         #21253a;
         --bg-hover:           #1e2236;
         --bg-station-header:  #1c2240;
         --bg-table-head:      #202438;
-        --bg-input:           transparent;
-
         --text-primary:       #dde1f5;
         --text-secondary:     #8892b0;
         --text-muted:         #566080;
         --text-placeholder:   #455070;
         --text-label:         #b0b8d8;
-
-        --border:             #38405e;
         --border-light:       #272d46;
         --border-table:       #252b40;
         --border-divider:     #272d46;
@@ -91,12 +152,10 @@
         --accent-blue-light:  #1c2044;
         --accent-blue-mid:    #272d5a;
         --accent-blue-deep:   #3949ab;
-
         --accent-green:       #66bb6a;
         --accent-green-hover: #81c784;
         --accent-green-light: #1a2d1b;
         --accent-green-mid:   #1e3620;
-
         --accent-orange:      #ff8a65;
         --accent-orange-hover:#ffab91;
         --accent-orange-light:#2a1508;
@@ -105,6 +164,23 @@
         --nav-end:            #141760;
         --nav-text:           rgba(210,215,255,0.85);
         --nav-active-bg:      rgba(255,255,255,0.1);
+
+        /* Sidebar */
+        --sb-bg:              #1a1d2e;
+        --sb-border:          #252840;
+        --sb-text:            rgba(255,255,255,0.5);
+        --sb-text-hover:      rgba(255,255,255,0.85);
+        --sb-hover-bg:        rgba(255,255,255,0.06);
+        --sb-active-bg:       rgba(99,102,241,0.18);
+        --sb-active-border:   #6366f1;
+        --sb-active-text:     #a5b4fc;
+        --sb-brand-bg:        #6366f1;
+        --sb-brand-name:      #ffffff;
+        --sb-brand-sub:       rgba(255,255,255,0.35);
+        --sb-divider:         #252840;
+        --sb-bottom-text:     rgba(255,255,255,0.4);
+        --sb-role-bg:         rgba(255,255,255,0.05);
+        --sb-role-border:     rgba(255,255,255,0.12);
 
         --shadow-card:        0 2px 16px rgba(0,0,0,0.5);
         --shadow-card-hover:  0 6px 24px rgba(0,0,0,0.6);
@@ -121,17 +197,27 @@
         --badge-view-text:    #7986cb;
       }
 
-      * { box-sizing: border-box; margin: 0; padding: 0; }
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body { height: 100%; }
       body {
-        font-family: 'Sarabun', sans-serif;
-        background: var(--bg-page);
-        color: var(--text-primary);
+        font-family: var(--font);
+        background: var(--bg);
+        color: var(--text);
+        font-size: 14px;
+        -webkit-font-smoothing: antialiased;
         transition: background 0.25s, color 0.25s;
       }
+      a { color: inherit; text-decoration: none; }
+      input, select, textarea, button { font-family: inherit; }
+      ::-webkit-scrollbar { width: 5px; height: 5px; }
+      ::-webkit-scrollbar-track { background: var(--surface2); }
+      ::-webkit-scrollbar-thumb { background: var(--border2, #d0d5dd); border-radius: 3px; }
 
       @media print {
-        nav, .no-print { display: none !important; }
-        body { background: white !important; }
+        nav, aside, .no-print { display: none !important; }
+        .app-layout { display: block !important; }
+        .app-main { overflow: visible !important; height: auto !important; }
+        body { background: white !important; font-family: 'Noto Sans Thai', sans-serif; }
         .form-card { box-shadow: none !important; }
       }
     </style>

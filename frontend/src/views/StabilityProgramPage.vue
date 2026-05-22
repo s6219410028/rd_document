@@ -48,15 +48,15 @@
           </div>
           <div class="field-group sm">
             <label>Lot no.:</label>
-            <input v-model="p.lot_no" type="text" class="input-field" />
+            <input v-model="p.lot_no" type="text" />
           </div>
           <div class="field-group sm">
             <label>Mfg. date:</label>
-            <input v-model="p.mfg_date" type="date" class="input-field" />
+            <DateInput v-model="p.mfg_date" />
           </div>
           <div class="field-group sm">
             <label>Exp. date:</label>
-            <input v-model="p.exp_date" type="date" class="input-field" />
+            <DateInput v-model="p.exp_date" />
           </div>
         </div>
       </div>
@@ -110,7 +110,7 @@
             <input v-model="form.initial_label" type="text" class="label-input" placeholder="label" />
           </div>
           <div v-for="(_, i) in STATIONS" :key="i" class="station-col">
-            <input v-model="form.initial_dates[i]" type="date" class="date-input" />
+            <DateInput v-model="form.initial_dates[i]" />
           </div>
         </div>
 
@@ -118,7 +118,7 @@
         <div class="date-row">
           <div class="row-label">Long term</div>
           <div v-for="(_, i) in STATIONS" :key="i" class="station-col">
-            <input v-model="form.longterm_dates[i]" type="date" class="date-input" />
+            <DateInput v-model="form.longterm_dates[i]" />
           </div>
         </div>
 
@@ -179,13 +179,13 @@
         <div class="date-row">
           <div class="row-label">วันที่ส่ง lab:</div>
           <div v-for="(_, i) in STATIONS" :key="i" class="station-col">
-            <input v-model="form.lab_send_dates[i]" type="date" class="date-input" />
+            <DateInput v-model="form.lab_send_dates[i]" />
           </div>
         </div>
         <div class="date-row">
           <div class="row-label">ลงชื่อ:</div>
           <div v-for="(_, i) in STATIONS" :key="i" class="station-col">
-            <input v-model="form.signatures[i]" type="text" class="date-input" />
+            <input v-model="form.signatures[i]" type="text" />
           </div>
         </div>
       </div>
@@ -220,12 +220,13 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { api } from '../api/index.js'
+import DateInput from '../components/DateInput.vue'
 
 const props = defineProps({ id: String })
 const route = useRoute()
-const router = useRouter()
+
 
 const STATIONS = ['1 Mo', '3 Mo', '6 Mo', '9 Mo', '12 Mo', '18 Mo', '24 Mo', '30 Mo', '36 Mo', '42 Mo', '48 Mo', '54 Mo', '60 Mo']
 const N = STATIONS.length
@@ -280,16 +281,18 @@ function showToast(msg, type = 'success') {
 }
 
 async function saveForm() {
+  if (editId.value) {
+    if (!confirm(`ยืนยันการบันทึกทับข้อมูลรายการ #${editId.value}?\nข้อมูลเดิมจะถูกแทนที่และไม่สามารถกู้คืนได้`)) return
+  }
   saving.value = true
   try {
     if (editId.value) {
       await api.stability.update(editId.value, form)
       showToast('อัปเดตสำเร็จ')
     } else {
-      const res = await api.stability.create(form)
-      editId.value = res.id
-      router.replace(`/stability/${res.id}`)
-      showToast('บันทึกสำเร็จ')
+      await api.stability.create(form)
+      showToast('บันทึกสำเร็จ — กำลังเคลียร์ฟอร์ม...')
+      setTimeout(() => { resetForm() }, 1500)
     }
   } catch {
     showToast('เกิดข้อผิดพลาด กรุณาตรวจสอบการเชื่อมต่อ', 'error')
@@ -319,47 +322,48 @@ onMounted(async () => {
   padding: 12px 0; margin-bottom: 16px; gap: 12px; flex-wrap: wrap;
 }
 .action-left, .action-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.back-btn { color: var(--accent-blue); text-decoration: none; font-size: 14px; font-weight: 500; }
-.back-btn:hover { text-decoration: underline; }
+.back-btn { color: var(--c-teal); text-decoration: none; font-size: 14px; font-weight: 600; }
+.back-btn:hover { opacity: 0.8; }
 .form-badge  { background: var(--accent-blue-light); color: var(--accent-blue); font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
-.edit-badge  { background: var(--accent-orange-light); color: var(--accent-orange); font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
+.edit-badge  { background: var(--surface2); color: var(--text2); font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
 
 .btn-primary {
-  background: var(--accent-blue); color: white; border: none;
-  padding: 9px 20px; border-radius: 6px; cursor: pointer; font-family: inherit; font-size: 14px;
-  transition: background 0.2s;
+  background: var(--c-teal); color: var(--c-dark); border: none;
+  padding: 9px 22px; border-radius: var(--r-sm); cursor: pointer;
+  font-family: inherit; font-size: 14px; font-weight: 700;
+  transition: opacity 0.2s;
 }
-.btn-primary:hover:not(:disabled) { background: var(--accent-blue-hover); }
-.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-primary:hover:not(:disabled) { opacity: 0.85; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-secondary {
-  background: var(--bg-card); color: var(--text-label);
-  border: 1px solid var(--border-light); padding: 8px 18px;
-  border-radius: 6px; cursor: pointer; font-family: inherit; font-size: 14px;
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--border); padding: 8px 18px;
+  border-radius: var(--r-sm); cursor: pointer; font-family: inherit; font-size: 14px;
   transition: background 0.2s;
 }
-.btn-secondary:hover { background: var(--bg-section); }
+.btn-secondary:hover { background: var(--surface2); }
 .btn-tiny {
-  background: var(--accent-blue-light); color: var(--accent-blue);
-  border: 1px dashed var(--accent-blue-deep); padding: 4px 12px;
-  border-radius: 4px; cursor: pointer; font-size: 12px; font-family: inherit;
+  background: rgba(0,229,160,0.08); color: var(--c-teal);
+  border: 1.5px dashed var(--c-teal); padding: 4px 12px;
+  border-radius: var(--r-sm); cursor: pointer; font-size: 12px; font-family: inherit; font-weight: 600;
   transition: background 0.15s;
 }
-.btn-tiny:hover { background: var(--accent-blue-mid); }
+.btn-tiny:hover { background: rgba(0,229,160,0.15); }
 
 /* ── Toast ── */
 .toast {
   position: fixed; top: 80px; right: 24px; padding: 12px 20px;
-  border-radius: 8px; color: white; font-size: 14px; z-index: 999;
-  box-shadow: var(--shadow-toast);
+  border-radius: var(--r-md); color: white; font-size: 14px; z-index: 999;
+  box-shadow: var(--shadow-lg);
 }
-.toast.success { background: #2e7d32; }
-.toast.error   { background: #c62828; }
+.toast.success { background: #059669; }
+.toast.error   { background: #dc2626; }
 
 /* ── Form card ── */
 .form-card {
-  background: var(--bg-card); border-radius: 12px; padding: 28px 32px;
-  box-shadow: var(--shadow-card); max-width: 1100px; margin: 0 auto;
-  border: 1px solid var(--border-divider);
+  background: var(--surface); border-radius: var(--r-lg); padding: 28px 32px;
+  box-shadow: var(--shadow-sm); max-width: 1100px; margin: 0 auto;
+  border: 1px solid var(--border);
   transition: background 0.25s;
 }
 
@@ -431,7 +435,7 @@ label { font-size: 14px; font-weight: 500; white-space: nowrap; color: var(--tex
   background: var(--bg-section); color: var(--text-label);
   display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
 }
-.temp-label { color: var(--accent-blue); }
+.temp-label { color: var(--c-teal); }
 .station-col {
   padding: 4px; font-size: 12px; text-align: center;
   border-right: 1px solid var(--border-table);
@@ -446,7 +450,7 @@ label { font-size: 14px; font-weight: 500; white-space: nowrap; color: var(--tex
   background: transparent; font-size: 11px; padding: 2px; text-align: center;
   font-family: inherit; outline: none; color: var(--text-primary);
 }
-.date-input:focus { border-bottom-color: var(--accent-blue); }
+.date-input:focus { border-bottom-color: var(--c-teal); }
 .label-input {
   border: none; border-bottom: 1px dashed var(--border);
   background: transparent; width: 60px; font-size: 11px; padding: 1px;
