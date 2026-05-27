@@ -38,7 +38,7 @@
         </span>
       </router-link>
 
-      <router-link to="/stability" class="nav-item" active-class="nav-active">
+      <!-- <router-link to="/stability" class="nav-item" active-class="nav-active">
         <span class="nav-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
         </span>
@@ -46,7 +46,7 @@
           Stability
           <small>F-RD-FD-012</small>
         </span>
-      </router-link>
+      </router-link> -->
 
       <router-link to="/records" class="nav-item" active-class="nav-active">
         <span class="nav-icon">
@@ -70,8 +70,8 @@
         <template v-if="!role">
           <div class="role-prompt">เลือกบทบาท</div>
           <div class="role-btns">
-            <button class="role-btn role-sender" @click="setRole('sender')">📤 ผู้ส่ง</button>
-            <button class="role-btn role-tester" @click="setRole('tester')">🔬 ผู้ทดสอบ</button>
+            <button class="role-btn role-sender" @click="switchRole('sender')">📤 ผู้ส่ง</button>
+            <button class="role-btn role-tester" @click="switchRole('tester')">🔬 ผู้ทดสอบ</button>
           </div>
         </template>
         <template v-else>
@@ -95,6 +95,11 @@ import { useDarkMode } from '../composables/useDarkMode.js'
 import { useRole } from '../composables/useRole.js'
 const darkMode = useDarkMode()
 const { role, setRole, clearRole } = useRole()
+
+function switchRole(newRole) {
+  setRole(newRole)
+  window.location.reload()
+}
 </script>
 
 <style scoped>

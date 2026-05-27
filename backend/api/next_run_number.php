@@ -5,11 +5,10 @@ if ($method !== 'GET') {
     jsonResponse(['error' => 'Method not allowed'], 405);
 }
 
-$year  = date('y');   // 2-digit current year
-$month = date('m');   // 2-digit current month
+$year  = isset($_GET['year'])  ? $_GET['year']  : date('y');
+$month = isset($_GET['month']) ? $_GET['month'] : date('m');
 
-// Find highest sequence number across BOTH form types for the current year.
-// analysis_number format: RD{YY}-{XX}/{MM}  — extract XX between '-' and '/'.
+// Find highest sequence for the given year+month combination across both form tables.
 $stmt = $db->prepare("
     SELECT MAX(CAST(
         SUBSTRING(an, LOCATE('-', an) + 1, LOCATE('/', an) - LOCATE('-', an) - 1)
@@ -19,16 +18,16 @@ $stmt = $db->prepare("
         UNION ALL
         SELECT JSON_UNQUOTE(JSON_EXTRACT(form_data,'$.analysis_number')) AS an FROM dissolution_forms
     ) sub
-    WHERE an LIKE ? AND an LIKE '%/%'
+    WHERE an LIKE ? AND an LIKE ?
 ");
-$stmt->execute(["RD{$year}-%"]);
+$stmt->execute(["RD{$year}-%", "%/{$month}"]);
 $row    = $stmt->fetch();
-$maxSeq = $row['max_seq'] ?? 0;
-$next   = (int)$maxSeq + 1;
+$maxSeq = (int)($row['max_seq'] ?? 0);
+$next   = $maxSeq + 1;
 
 jsonResponse([
     'year'       => $year,
     'month'      => $month,
     'next_seq'   => $next,
-    'run_number' => sprintf('RD%s-%02d/%s', $year, $next, $month),
+    'run_number' => sprintf('RD%s-%03d/%s', $year, $next, $month),
 ]);

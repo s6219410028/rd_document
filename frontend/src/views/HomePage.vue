@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="page-header">
-      <h1><span class="sl">//</span> ระบบจัดการเอกสาร R&D</h1>
+      <h1><span class="sl">//</span> ระบบจัดการเอกสาร RD</h1>
       <p>T.MAN PHARMA CO., LTD. — แผนกวิจัยและพัฒนา</p>
     </div>
     <div class="form-cards">
@@ -28,7 +28,7 @@
       </div>
 
 
-      <div class="form-card" @click="$router.push('/stability')">
+      <!-- <div class="form-card" @click="$router.push('/stability')">
         <div class="form-icon icon-blue">📋</div>
         <div class="form-info">
           <div class="form-code code-blue">F-RD-FD-012</div>
@@ -37,7 +37,7 @@
         </div>
         <div class="form-count">{{ counts.stability }} รายการ</div>
         <button class="btn-new btn-blue">+ สร้างใหม่</button>
-      </div>
+      </div> -->
 
     </div>
 
@@ -51,9 +51,25 @@
       <div class="recent-group">
         <div class="group-header">
           <h3><span class="sl">//</span> Quality Check <span class="form-code-tag">F-RD-FD-005</span></h3>
-          <div class="search-box">
-            <span class="search-icon">🔍</span>
-            <input v-model="qcSearch" class="search-input" type="text" placeholder="ค้นหาชื่อผลิตภัณฑ์..." @click.stop />
+        </div>
+        <div class="tbl-filter-bar">
+          <div class="tbl-filter-inputs">
+            <div class="tbl-search-wrap">
+              <span class="tbl-search-icon">🔍</span>
+              <input v-model="qcFilterName" class="tbl-filter-input" type="text" placeholder="ชื่อผลิตภัณฑ์..." @click.stop />
+            </div>
+            <div class="tbl-search-wrap">
+              <span class="tbl-search-icon">📋</span>
+              <input v-model="qcFilterNumber" class="tbl-filter-input" type="text" placeholder="เลขที่ใบส่งวิเคราะห์..." @click.stop />
+            </div>
+          </div>
+          <div class="sort-group">
+            <button class="sort-btn" :class="{ 'sort-active': qcSortField === 'send_date' }" @click.stop="toggleQcSort('send_date')">
+              วันที่ส่ง <span class="sort-arrow">{{ qcSortField === 'send_date' ? (qcSortDir === 'asc' ? '▲' : '▼') : '↕' }}</span>
+            </button>
+            <button class="sort-btn" :class="{ 'sort-active': qcSortField === 'urgency' }" @click.stop="toggleQcSort('urgency')">
+              ความเร่งด่วน <span class="sort-arrow">{{ qcSortField === 'urgency' ? (qcSortDir === 'asc' ? '▲' : '▼') : '↕' }}</span>
+            </button>
           </div>
         </div>
         <div v-if="qualityCheck.length === 0" class="empty">ยังไม่มีข้อมูล</div>
@@ -64,6 +80,8 @@
                 <th>ID</th>
                 <th>ชื่อผลิตภัณฑ์</th>
                 <th style="width:110px">PDF อัปโหลด</th>
+                <th style="width:90px">ความเร่งด่วน</th>
+                <th style="width:130px">สถานะ</th>
                 <th>วันที่สร้าง</th>
                 <th>จัดการ</th>
               </tr>
@@ -88,17 +106,23 @@
                   </template>
                   <span v-else class="prog-none">ยังไม่ได้เลือก</span>
                 </td>
+                <td>
+                  <span v-if="urgencyLabel(r.urgency_level)" :class="['urg-badge', urgencyClass(r.urgency_level)]">{{ urgencyLabel(r.urgency_level) }}</span>
+                  <span v-else class="td-na">-</span>
+                </td>
+                <td><span :class="['st-badge', statusInfo(r).cls]">{{ statusInfo(r).label }}</span></td>
                 <td>{{ formatDate(r.created_at) }}</td>
                 <td>
                   <button v-if="role === 'tester'" class="btn-sm btn-test" @click.stop="$router.push(`/quality-check/${r.id}/test`)">ทดสอบ</button>
                   <template v-else>
                     <button class="btn-sm btn-view" @click.stop="$router.push(`/quality-check/${r.id}`)">เปิด</button>
+                    <button v-if="r.status === 'in_progress'" class="btn-sm btn-accept" @click.stop="acceptQcResult(r.id)">✓ รับผล</button>
                     <button class="btn-sm btn-del" @click.stop="deleteRecord('qualityCheck', r.id)">ลบ</button>
                   </template>
                 </td>
               </tr>
               <tr v-if="filteredQualityCheck.length === 0">
-                <td colspan="5" class="empty">ไม่พบรายการที่ค้นหา</td>
+                <td colspan="7" class="empty">ไม่พบรายการที่ค้นหา</td>
               </tr>
             </tbody>
           </table>
@@ -108,9 +132,25 @@
       <div class="recent-group">
         <div class="group-header">
           <h3><span class="sl">//</span> Dissolution Profile <span class="form-code-tag">F-RD-FD-006</span></h3>
-          <div class="search-box">
-            <span class="search-icon">🔍</span>
-            <input v-model="dissolutionSearch" class="search-input" type="text" placeholder="ค้นหาเลขที่ใบส่งวิเคราะห์..." @click.stop />
+        </div>
+        <div class="tbl-filter-bar">
+          <div class="tbl-filter-inputs">
+            <div class="tbl-search-wrap">
+              <span class="tbl-search-icon">🔍</span>
+              <input v-model="disFilterName" class="tbl-filter-input" type="text" placeholder="ชื่อผลิตภัณฑ์..." @click.stop />
+            </div>
+            <div class="tbl-search-wrap">
+              <span class="tbl-search-icon">📋</span>
+              <input v-model="disFilterNumber" class="tbl-filter-input" type="text" placeholder="เลขที่ใบส่งวิเคราะห์..." @click.stop />
+            </div>
+          </div>
+          <div class="sort-group">
+            <button class="sort-btn" :class="{ 'sort-active': disSortField === 'send_date' }" @click.stop="toggleDisSort('send_date')">
+              วันที่ส่ง <span class="sort-arrow">{{ disSortField === 'send_date' ? (disSortDir === 'asc' ? '▲' : '▼') : '↕' }}</span>
+            </button>
+            <button class="sort-btn" :class="{ 'sort-active': disSortField === 'urgency' }" @click.stop="toggleDisSort('urgency')">
+              ความเร่งด่วน <span class="sort-arrow">{{ disSortField === 'urgency' ? (disSortDir === 'asc' ? '▲' : '▼') : '↕' }}</span>
+            </button>
           </div>
         </div>
         <div v-if="dissolution.length === 0" class="empty">ยังไม่มีข้อมูล</div>
@@ -120,6 +160,8 @@
               <tr>
                 <th>ID</th>
                 <th>เลขที่ใบส่งวิเคราะห์</th>
+                <th style="width:90px">ความเร่งด่วน</th>
+                <th style="width:130px">สถานะ</th>
                 <th>วันที่สร้าง</th>
                 <th>จัดการ</th>
               </tr>
@@ -128,14 +170,22 @@
               <tr v-for="r in filteredDissolution" :key="r.id">
                 <td>#{{ r.id }}</td>
                 <td>{{ r.analysis_number || '-' }}</td>
+                <td>
+                  <span v-if="urgencyLabel(r.urgency_level)" :class="['urg-badge', urgencyClass(r.urgency_level)]">{{ urgencyLabel(r.urgency_level) }}</span>
+                  <span v-else class="td-na">-</span>
+                </td>
+                <td><span :class="['st-badge', statusInfo(r).cls]">{{ statusInfo(r).label }}</span></td>
                 <td>{{ formatDate(r.created_at) }}</td>
                 <td>
-                  <button class="btn-sm btn-view" @click.stop="$router.push(`/dissolution/${r.id}`)">เปิด</button>
-                  <button v-if="role !== 'tester'" class="btn-sm btn-del" @click.stop="deleteRecord('dissolution', r.id)">ลบ</button>
+                  <button v-if="role === 'tester'" class="btn-sm btn-test" @click.stop="$router.push(`/dissolution/${r.id}/test`)">ทดสอบ</button>
+                  <template v-else>
+                    <button class="btn-sm btn-view" @click.stop="$router.push(`/dissolution/${r.id}`)">เปิด</button>
+                    <button class="btn-sm btn-del" @click.stop="deleteRecord('dissolution', r.id)">ลบ</button>
+                  </template>
                 </td>
               </tr>
               <tr v-if="filteredDissolution.length === 0">
-                <td colspan="4" class="empty">ไม่พบรายการที่ค้นหา</td>
+                <td colspan="6" class="empty">ไม่พบรายการที่ค้นหา</td>
               </tr>
             </tbody>
           </table>
@@ -147,7 +197,7 @@
           <h3><span class="sl">//</span> Stability Program <span class="form-code-tag">F-RD-FD-012</span></h3>
           <div class="search-box">
             <span class="search-icon">🔍</span>
-            <input v-model="stabilitySearch" class="search-input" type="text" placeholder="ค้นหาชื่อผลิตภัณฑ์..." @click.stop />
+            <input v-model="stabFilterName" class="search-input" type="text" placeholder="ค้นหาชื่อผลิตภัณฑ์..." @click.stop />
           </div>
         </div>
         <div v-if="stability.length === 0" class="empty">ยังไม่มีข้อมูล</div>
@@ -193,24 +243,64 @@ const dissolution = ref([])
 const qualityCheck = ref([])
 const { role } = useRole()
 
-const qcSearch = ref('')
-const dissolutionSearch = ref('')
-const stabilitySearch = ref('')
+const qcFilterName   = ref('')
+const qcFilterNumber = ref('')
+const qcSortField    = ref('created_at')
+const qcSortDir      = ref('desc')
+
+const disFilterName   = ref('')
+const disFilterNumber = ref('')
+const disSortField    = ref('created_at')
+const disSortDir      = ref('desc')
+
+const stabFilterName = ref('')
+
+function applySort(list, field, dir) {
+  return [...list].sort((a, b) => {
+    let va, vb
+    if (field === 'send_date') {
+      va = a.send_date || ''; vb = b.send_date || ''
+    } else if (field === 'urgency') {
+      va = Number(a.urgency_level) || 0; vb = Number(b.urgency_level) || 0
+    } else {
+      va = a.created_at || ''; vb = b.created_at || ''
+    }
+    if (va < vb) return dir === 'asc' ? -1 : 1
+    if (va > vb) return dir === 'asc' ?  1 : -1
+    return 0
+  })
+}
+
+function toggleQcSort(field) {
+  if (qcSortField.value === field) { qcSortDir.value = qcSortDir.value === 'asc' ? 'desc' : 'asc' }
+  else { qcSortField.value = field; qcSortDir.value = 'desc' }
+}
+
+function toggleDisSort(field) {
+  if (disSortField.value === field) { disSortDir.value = disSortDir.value === 'asc' ? 'desc' : 'asc' }
+  else { disSortField.value = field; disSortDir.value = 'desc' }
+}
 
 const filteredQualityCheck = computed(() => {
-  const q = qcSearch.value.trim().toLowerCase()
-  if (!q) return qualityCheck.value
-  return qualityCheck.value.filter(r => (r.product_name || '').toLowerCase().includes(q))
+  let list = qualityCheck.value
+  const name = qcFilterName.value.trim().toLowerCase()
+  const num  = qcFilterNumber.value.trim().toLowerCase()
+  if (name) list = list.filter(r => (r.product_name || '').toLowerCase().includes(name))
+  if (num)  list = list.filter(r => (r.analysis_number || '').toLowerCase().includes(num))
+  return applySort(list, qcSortField.value, qcSortDir.value)
 })
 
 const filteredDissolution = computed(() => {
-  const q = dissolutionSearch.value.trim().toLowerCase()
-  if (!q) return dissolution.value
-  return dissolution.value.filter(r => (r.analysis_number || '').toLowerCase().includes(q))
+  let list = dissolution.value
+  const name = disFilterName.value.trim().toLowerCase()
+  const num  = disFilterNumber.value.trim().toLowerCase()
+  if (name) list = list.filter(r => (r.product_name || '').toLowerCase().includes(name))
+  if (num)  list = list.filter(r => (r.analysis_number || '').toLowerCase().includes(num))
+  return applySort(list, disSortField.value, disSortDir.value)
 })
 
 const filteredStability = computed(() => {
-  const q = stabilitySearch.value.trim().toLowerCase()
+  const q = stabFilterName.value.trim().toLowerCase()
   if (!q) return stability.value
   return stability.value.filter(r => (r.product_name || '').toLowerCase().includes(q))
 })
@@ -256,6 +346,16 @@ async function deleteRecord(type, id) {
   loadAll()
 }
 
+async function acceptQcResult(id) {
+  if (!confirm(`ยืนยันการรับผลรายการ #${id}?\nสถานะจะเปลี่ยนเป็น "รับผลเรียบร้อย" และไม่สามารถแก้ไขได้`)) return
+  try {
+    await api.qualityCheck.patch(id, { status: 'complete' })
+    await loadAll()
+  } catch {
+    alert('เกิดข้อผิดพลาด')
+  }
+}
+
 function formatDate(dt) {
   if (!dt) return '-'
   const m = String(dt).match(/^(\d{4})-(\d{2})-(\d{2})/)
@@ -263,6 +363,27 @@ function formatDate(dt) {
   const d = new Date(dt)
   if (isNaN(d.getTime())) return '-'
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
+}
+
+const STATUS_INFO = {
+  pending:     { label: 'ส่งวิเคราะห์',     cls: 'st-pending'     },
+  in_progress: { label: 'กำลังวิเคราะห์',   cls: 'st-in-progress' },
+  pending_rd:  { label: 'รอรับผล',           cls: 'st-pending-rd'  },
+  complete:    { label: 'รับผลเรียบร้อย',    cls: 'st-complete'    },
+}
+function statusInfo(r) { return STATUS_INFO[r.status] || STATUS_INFO.pending }
+
+function urgencyLabel(level) {
+  if (level == 3) return 'สูง'
+  if (level == 2) return 'ปานกลาง'
+  if (level == 1) return 'ต่ำ'
+  return null
+}
+function urgencyClass(level) {
+  if (level == 3) return 'urg-high'
+  if (level == 2) return 'urg-medium'
+  if (level == 1) return 'urg-low'
+  return ''
 }
 
 onMounted(loadAll)
@@ -611,6 +732,22 @@ onMounted(loadAll)
 
 .btn-test { color: #059669; border-color: #34d399; }
 .btn-test:hover { background: rgba(52,211,153,0.12); }
+.btn-accept { color: #059669; border-color: #059669; font-weight: 600; }
+.btn-accept:hover { background: #f0fdf4; }
+
+/* ── Status badges ── */
+.st-badge { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 20px; white-space: nowrap; display: inline-block; }
+.st-pending     { background: #fef3c7; color: #d97706; }
+.st-in-progress { background: #dbeafe; color: #2563eb; }
+.st-pending-rd  { background: #f3e8ff; color: #7c3aed; }
+.st-complete    { background: #d1fae5; color: #059669; }
+
+/* ── Urgency badges ── */
+.urg-badge  { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 20px; white-space: nowrap; display: inline-block; }
+.urg-high   { background: #fef2f2; color: #dc2626; }
+.urg-medium { background: #fffbeb; color: #d97706; }
+.urg-low    { background: #f0fdf4; color: #16a34a; }
+.td-na      { color: var(--text3); font-size: 12px; }
 
 /* ── QC upload progress bar ── */
 .td-progress { min-width: 100px; }
@@ -628,6 +765,39 @@ onMounted(loadAll)
 }
 .prog-fill.prog-done { background: var(--accent-green); }
 .prog-none { font-size: 12px; color: var(--text3); }
+
+/* ── Table filter bar ── */
+.tbl-filter-bar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 16px; border-bottom: 1px solid var(--border);
+  background: var(--surface); flex-wrap: wrap;
+}
+.tbl-filter-inputs { display: flex; gap: 8px; flex: 1; flex-wrap: wrap; }
+.tbl-search-wrap {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--r-sm); padding: 5px 10px;
+  flex: 1; min-width: 160px;
+  transition: border-color 0.18s;
+}
+.tbl-search-wrap:focus-within { border-color: var(--c-teal); }
+.tbl-search-icon { font-size: 12px; opacity: 0.45; flex-shrink: 0; }
+.tbl-filter-input {
+  border: none; outline: none; background: transparent;
+  font-family: inherit; font-size: 13px; color: var(--text); width: 100%;
+}
+.tbl-filter-input::placeholder { color: var(--text3); }
+.sort-group { display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; }
+.sort-btn {
+  padding: 5px 12px; border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: var(--surface2); color: var(--text2);
+  cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600;
+  transition: all 0.15s; white-space: nowrap;
+}
+.sort-btn:hover { border-color: var(--c-teal); color: var(--text); }
+.sort-btn.sort-active { background: var(--c-teal); color: var(--c-dark); border-color: var(--c-teal); }
+.sort-arrow { font-size: 10px; }
 
 @media (max-width: 768px) {
   .form-cards {

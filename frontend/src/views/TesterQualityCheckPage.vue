@@ -5,11 +5,12 @@
         <router-link to="/records" class="back-btn">← รายการทั้งหมด</router-link>
         <span class="form-badge">F-RD-FD-005 REV.00</span>
         <span class="tester-badge">🔬 ผู้ทดสอบ — #{{ formId }}</span>
+        <span :class="['status-badge', `status-${formStatus}`]">{{ STATUS_LABELS[formStatus] }}</span>
       </div>
       <div class="action-right">
-        <button v-if="role !== 'sender'" class="btn-primary" :disabled="saving" @click="saveResult">
+        <!-- <button v-if="role !== 'sender'" class="btn-primary" :disabled="saving" @click="saveResult">
           {{ saving ? 'กำลังบันทึก...' : '💾 บันทึกผล' }}
-        </button>
+        </button> -->
       </div>
     </div>
 
@@ -49,39 +50,81 @@
 
       <!-- Upload section per param -->
       <div class="upload-section">
-        <h2 class="section-title">อัปโหลดรายงาน PDF ต่อหัวข้อ</h2>
-        <p class="section-hint">แต่ละหัวข้อที่ผู้ส่งเลือกต้องอัปโหลด 1 ไฟล์ PDF</p>
+        <h2 class="section-title">อัปโหลดรายงานและบันทึกผลต่อหัวข้อ</h2>
+        <p v-if="!isComplete" class="section-hint">อัปโหลดไฟล์ PDF หรือ JPEG ต่อหัวข้อ — ยกเว้น Appearance ให้บันทึกเป็นข้อความ</p>
+        <div v-if="isComplete" class="complete-notice">🔒 การวิเคราะห์เสร็จสิ้นแล้ว — ไม่สามารถแก้ไขข้อมูลได้</div>
 
         <div v-if="activeParams.length === 0" class="empty-params">ผู้ส่งไม่ได้เลือกหัวข้อใดไว้</div>
 
-        <div v-for="param in activeParams" :key="param.key" class="param-card">
+        <div
+          v-for="param in activeParams" :key="param.key" class="param-card"
+          :class="{ 'param-done': param.key === 'appearance' ? appearanceResult.trim().length > 0 : !!uploadMap[param.key] }"
+        >
           <div class="param-card-left">
             <div class="param-name">{{ param.label }}</div>
-            <div v-if="uploadMap[param.key]" class="file-info">
-              <span class="file-icon">📄</span>
-              <span class="file-name">{{ uploadMap[param.key].original_name }}</span>
-              <a :href="fileUrl(uploadMap[param.key].filename)" target="_blank" class="btn-preview">ดู PDF</a>
-              <button class="btn-remove" @click="removeUpload(param.key)">✕ ลบ</button>
-            </div>
-            <div v-else class="no-file">ยังไม่ได้อัปโหลด</div>
+
+            <!-- Appearance: text input or readonly -->
+            <template v-if="param.key === 'appearance'">
+              <textarea v-if="!isComplete && role !== 'sender'"
+                v-model="appearanceResult"
+                class="appearance-input"
+                rows="2"
+                placeholder="บันทึกลักษณะที่สังเกตได้ เช่น สีขาว ทรงกลม เคลือบฟิล์ม..."
+              ></textarea>
+              <div v-else class="appearance-text-readonly">{{ appearanceResult || '-' }}</div>
+            </template>
+
+            <!-- Other params: file info -->
+            <template v-else>
+              <div v-if="uploadMap[param.key]" class="file-info">
+                <span class="file-icon">{{ uploadMap[param.key].original_name?.match(/\.(jpg|jpeg)$/i) ? '🖼️' : '📄' }}</span>
+                <span class="file-name">{{ uploadMap[param.key].original_name }}</span>
+                <a :href="fileUrl(uploadMap[param.key].filename)" target="_blank" class="btn-preview">ดูไฟล์</a>
+                <button v-if="!isComplete && role !== 'sender'" class="btn-remove" @click="removeUpload(param.key)">✕ ลบ</button>
+              </div>
+              <div v-else class="no-file">ยังไม่ได้อัปโหลด</div>
+            </template>
           </div>
+
           <div class="param-card-right">
-            <label class="upload-label" :class="{ uploaded: !!uploadMap[param.key] }">
+            <!-- Upload button: non-appearance, not complete, not sender -->
+            <label v-if="param.key !== 'appearance' && !isComplete && role !== 'sender'"
+              class="upload-label" :class="{ uploaded: !!uploadMap[param.key] }">
               <input
-                type="file" accept=".pdf" class="file-input"
+                type="file" accept=".pdf,.jpg,.jpeg" class="file-input"
                 @change="handleFileChange(param, $event)"
                 :disabled="uploadingKey === param.key"
               />
               <span v-if="uploadingKey === param.key" class="upload-btn-text">กำลังอัปโหลด...</span>
               <span v-else-if="uploadMap[param.key]" class="upload-btn-text">📎 เปลี่ยนไฟล์</span>
-              <span v-else class="upload-btn-text">📎 เลือก PDF</span>
+              <span v-else class="upload-btn-text">📎 เลือกไฟล์</span>
             </label>
+            <!-- Pass/fail checkboxes: editable for tester when not complete -->
+            <template v-if="!isComplete && role !== 'sender'">
+              <label class="pass-check">
+                <input type="checkbox"
+                  :checked="param_pass[param.key] === true"
+                  @change="e => { param_pass[param.key] = e.target.checked ? true : null }" />
+                ผ่าน
+              </label>
+              <label class="pass-check fail-check">
+                <input type="checkbox"
+                  :checked="param_pass[param.key] === false"
+                  @change="e => { param_pass[param.key] = e.target.checked ? false : null }" />
+                ไม่ผ่าน
+              </label>
+            </template>
+            <!-- Pass chip: read-only for sender or when complete -->
+            <span v-else
+              :class="['pass-chip', param_pass[param.key] === true ? 'chip-pass' : param_pass[param.key] === false ? 'chip-fail' : 'chip-none']">
+              {{ param_pass[param.key] === true ? '✓ ผ่าน' : param_pass[param.key] === false ? '✗ ไม่ผ่าน' : '—' }}
+            </span>
           </div>
         </div>
 
         <div class="upload-summary">
-          <span :class="allUploaded ? 'summary-ok' : 'summary-warn'">
-            อัปโหลดแล้ว {{ uploadedCount }} / {{ activeParams.length }} หัวข้อ
+          <span :class="allCompleted ? 'summary-ok' : 'summary-warn'">
+            บันทึกแล้ว {{ completedCount }} / {{ activeParams.length }} หัวข้อ
           </span>
         </div>
       </div>
@@ -90,8 +133,8 @@
       <div class="result-card">
         <h2 class="section-title">ผลการทดสอบ</h2>
 
-        <!-- Read-only view for sender -->
-        <template v-if="role === 'sender'">
+        <!-- Read-only view for sender or when complete -->
+        <template v-if="role === 'sender' || isComplete">
           <div class="result-readonly">
             <span v-if="result.value === 'pass'" class="result-text pass">ผ่าน</span>
             <span v-else-if="result.value === 'fail'" class="result-text fail">ไม่ผ่าน</span>
@@ -115,13 +158,16 @@
 
         <!-- Editable form for tester -->
         <template v-else>
-          <div class="result-options">
+          <div v-if="!allCompleted" class="result-locked-notice">
+            ⚠️ กรุณาอัปโหลด / บันทึกให้ครบทุกหัวข้อก่อน ({{ completedCount }}/{{ activeParams.length }})
+          </div>
+          <div class="result-options" :class="{ 'result-locked': !allCompleted }">
             <label class="result-opt">
-              <input type="radio" v-model="result.value" value="pass" />
+              <input type="radio" v-model="result.value" value="pass" :disabled="!allCompleted" />
               <span class="result-text pass">ผ่าน</span>
             </label>
             <label class="result-opt">
-              <input type="radio" v-model="result.value" value="fail" />
+              <input type="radio" v-model="result.value" value="fail" :disabled="!allCompleted" />
               <span class="result-text fail">ไม่ผ่าน</span>
             </label>
           </div>
@@ -136,24 +182,42 @@
             </div>
             <div class="field-group">
               <label>วันที่:</label>
-              <input v-model="result.sig_date" type="date" class="input-field" style="width:160px" />
+              <DateInput v-model="result.sig_date" style="width:160px" />
             </div>
           </div>
         </template>
       </div>
     </template>
+        <div class="action-bar no-print">
+      <div class="action-left">
+        
+      </div>
+      <div class="action-right">
+        <button v-if="role !== 'sender' && !isComplete" class="btn-primary" :disabled="saving" @click="saveResult">
+          {{ saving ? 'กำลังบันทึก...' : '💾 บันทึกผล' }}
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, reactive, onMounted } from 'vue'
+import { ref, computed, reactive, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { api } from '../api/index.js'
 import { useRole } from '../composables/useRole.js'
+import DateInput from '../components/DateInput.vue'
 
 const props = defineProps({ id: String })
 const route = useRoute()
 const { role } = useRole()
+
+const STATUS_LABELS = {
+  pending:     'ส่งวิเคราะห์',
+  in_progress: 'กำลังวิเคราะห์',
+  pending_rd:  'รอรับผล',
+  complete:    'รับผลเรียบร้อย',
+}
 
 const formId = computed(() => props.id || route.params.id)
 const loading = ref(true)
@@ -162,8 +226,12 @@ const toast = ref(null)
 const form = ref(null)
 const uploads = ref([])
 const uploadingKey = ref(null)
+const appearanceResult = ref('')
+const formStatus = ref('pending')
 
 const result = reactive({ value: '', fail_remark: '', sig_analyst: '', sig_date: '' })
+const param_pass = reactive({})
+const isComplete = computed(() => formStatus.value === 'complete')
 
 const paramList = [
   { key: 'assay',          label: 'Assay' },
@@ -191,8 +259,16 @@ const uploadMap = computed(() => {
   return map
 })
 
-const uploadedCount = computed(() => Object.keys(uploadMap.value).length)
-const allUploaded = computed(() => uploadedCount.value >= activeParams.value.length && activeParams.value.length > 0)
+const completedCount = computed(() =>
+  activeParams.value.filter(p =>
+    p.key === 'appearance'
+      ? appearanceResult.value.trim().length > 0
+      : !!uploadMap.value[p.key]
+  ).length
+)
+const allCompleted = computed(() =>
+  activeParams.value.length > 0 && completedCount.value >= activeParams.value.length
+)
 
 function fileUrl(filename) {
   return api.uploads.fileUrl(filename)
@@ -203,6 +279,18 @@ function showToast(msg, type = 'success') {
   setTimeout(() => { toast.value = null }, 3000)
 }
 
+async function checkAndAutoAdvance() {
+  const id = formId.value
+  if (!id) return
+  if (formStatus.value === 'pending' && uploads.value.length > 0) {
+    try {
+      await api.qualityCheck.patch(id, { status: 'in_progress' })
+      formStatus.value = 'in_progress'
+      if (form.value) form.value.status = 'in_progress'
+    } catch { /* silent */ }
+  }
+}
+
 async function handleFileChange(param, event) {
   const file = event.target.files[0]
   if (!file) return
@@ -211,6 +299,7 @@ async function handleFileChange(param, event) {
     await api.uploads.upload('quality_check', formId.value, param.key, param.label, file)
     uploads.value = await api.uploads.list('quality_check', formId.value)
     showToast(`อัปโหลด "${param.label}" สำเร็จ`)
+    await checkAndAutoAdvance()
   } catch {
     showToast('อัปโหลดไม่สำเร็จ กรุณาตรวจสอบไฟล์', 'error')
   }
@@ -230,14 +319,18 @@ async function saveResult() {
   try {
     const updated = {
       ...form.value,
+      status: formStatus.value,
       result: result.value,
       fail_remark: result.fail_remark,
       sig_analyst: result.sig_analyst,
       sig_date: result.sig_date,
+      appearance_result: appearanceResult.value,
+      param_pass: { ...param_pass },
     }
     await api.qualityCheck.update(formId.value, updated)
     form.value = updated
     showToast('บันทึกผลสำเร็จ')
+    await checkAndAutoAdvance()
   } catch {
     showToast('เกิดข้อผิดพลาด กรุณาลองใหม่', 'error')
   }
@@ -248,11 +341,15 @@ onMounted(async () => {
   try {
     const res = await api.qualityCheck.get(formId.value)
     form.value = res.form_data
+    formStatus.value = res.form_data.status || 'pending'
     result.value = res.form_data.result || ''
     result.fail_remark = res.form_data.fail_remark || ''
     result.sig_analyst = res.form_data.sig_analyst || ''
     result.sig_date = res.form_data.sig_date || ''
+    appearanceResult.value = res.form_data.appearance_result || ''
+    Object.assign(param_pass, res.form_data.param_pass || {})
     uploads.value = await api.uploads.list('quality_check', formId.value)
+    await checkAndAutoAdvance()
   } catch {
     form.value = null
   }
@@ -268,6 +365,11 @@ onMounted(async () => {
 .back-btn:hover { opacity:0.8; }
 .form-badge { background:var(--accent-orange-light); color:var(--accent-orange); font-size:12px; font-weight:700; padding:3px 10px; border-radius:20px; }
 .tester-badge { background:rgba(52,211,153,0.15); color:#34d399; font-size:12px; font-weight:700; padding:3px 10px; border-radius:20px; border:1px solid rgba(52,211,153,0.3); }
+.status-badge       { font-size:12px; font-weight:700; padding:3px 10px; border-radius:20px; white-space:nowrap; }
+.status-pending     { background:#fef3c7; color:#d97706; }
+.status-in_progress { background:#dbeafe; color:#2563eb; }
+.status-pending_rd  { background:#f3e8ff; color:#7c3aed; }
+.status-complete    { background:#d1fae5; color:#059669; }
 
 .btn-primary { background:var(--accent-orange); color:white; border:none; padding:9px 20px; border-radius:6px; cursor:pointer; font-family:inherit; font-size:14px; transition:background 0.2s; }
 .btn-primary:hover:not(:disabled) { background:var(--accent-orange-hover); }
@@ -313,7 +415,9 @@ onMounted(async () => {
   background:var(--bg-section); gap:16px; flex-wrap:wrap;
   transition:border-color 0.2s;
 }
-.param-card:has(.file-info) { border-color:rgba(52,211,153,0.4); background:rgba(52,211,153,0.04); }
+.param-card.param-done { border-color:rgba(52,211,153,0.4); background:rgba(52,211,153,0.04); }
+.appearance-input { border:1px solid var(--border-light); border-radius:6px; padding:8px 10px; font-size:13px; font-family:inherit; width:100%; resize:vertical; background:var(--bg-card); color:var(--text-primary); outline:none; margin-top:4px; }
+.appearance-input:focus { border-color:var(--accent-orange); }
 .param-card-left { flex:1; min-width:200px; }
 .param-name { font-size:14px; font-weight:600; color:var(--text-label); margin-bottom:6px; }
 
@@ -354,7 +458,10 @@ onMounted(async () => {
 .readonly-label { color:var(--text-muted); font-weight:600; min-width:100px; }
 .readonly-val { color:var(--text-label); font-weight:500; }
 .readonly-sig { padding-top:12px; border-top:1px solid var(--border-divider); flex-direction:column; align-items:flex-start; gap:4px; }
+.result-locked-notice { background:var(--accent-orange-light); color:var(--accent-orange); padding:10px 14px; border-radius:8px; font-size:13px; font-weight:600; margin-bottom:12px; }
 .result-options { display:flex; gap:32px; margin:14px 0; }
+.result-locked .result-opt { opacity:0.4; cursor:not-allowed; }
+.result-locked .result-opt input { cursor:not-allowed; }
 .result-opt { display:flex; align-items:center; gap:8px; cursor:pointer; }
 .result-opt input[type="radio"] { width:18px; height:18px; cursor:pointer; }
 .result-text { font-size:15px; font-weight:600; padding:4px 16px; border-radius:4px; }
@@ -369,4 +476,38 @@ onMounted(async () => {
 .field-group label { font-size:13px; font-weight:600; white-space:nowrap; color:var(--text-label); }
 .input-field { border:none; border-bottom:1.5px solid var(--border); background:var(--bg-input); padding:4px 6px; font-size:14px; font-family:inherit; outline:none; color:var(--text-primary); }
 .input-field:focus { border-bottom-color:var(--accent-orange); }
+
+/* ── Complete notice ── */
+.complete-notice {
+  background: #d1fae5; color: #065f46;
+  border: 1px solid #6ee7b7; border-radius: 8px;
+  padding: 10px 14px; font-size: 13px; font-weight: 600;
+  margin-bottom: 16px;
+}
+
+/* ── Appearance readonly ── */
+.appearance-text-readonly {
+  font-size: 13px; color: var(--text-label);
+  padding: 4px 0; font-style: italic;
+}
+
+/* ── Per-param pass/fail ── */
+.pass-check {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  color: var(--text-label); white-space: nowrap;
+  margin-top: 6px;
+}
+.pass-check input[type="checkbox"] { width: 15px; height: 15px; cursor: pointer; accent-color: #059669; }
+.fail-check { color: #991b1b; }
+.fail-check input[type="checkbox"] { accent-color: #dc2626; }
+
+.pass-chip {
+  display: inline-block; font-size: 12px; font-weight: 700;
+  padding: 3px 10px; border-radius: 20px; white-space: nowrap;
+  margin-top: 6px;
+}
+.chip-pass { background: #d1fae5; color: #065f46; }
+.chip-fail { background: #fee2e2; color: #991b1b; }
+.chip-none { background: var(--bg-section); color: var(--text-muted); }
 </style>

@@ -25,7 +25,7 @@ switch ($method) {
         if ($file['error'] !== UPLOAD_ERR_OK) jsonResponse(['error' => 'File upload error: ' . $file['error']], 400);
 
         $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-        if ($ext !== 'pdf') jsonResponse(['error' => 'Only PDF files are allowed'], 400);
+        if (!in_array($ext, ['pdf', 'jpg', 'jpeg'])) jsonResponse(['error' => 'Only PDF or JPEG files are allowed'], 400);
 
         // Replace existing upload for same form + param
         $stmt = $db->prepare("SELECT filename FROM uploads WHERE form_type=? AND form_id=? AND param_key=?");
@@ -36,7 +36,7 @@ switch ($method) {
             $db->prepare("DELETE FROM uploads WHERE form_type=? AND form_id=? AND param_key=?")->execute([$formType, (int)$formId, $paramKey]);
         }
 
-        $filename = uniqid("{$formType}_{$formId}_{$paramKey}_") . '.pdf';
+        $filename = uniqid("{$formType}_{$formId}_{$paramKey}_") . '.' . $ext;
         if (!move_uploaded_file($file['tmp_name'], $uploadDir . $filename)) {
             jsonResponse(['error' => 'Failed to save file'], 500);
         }

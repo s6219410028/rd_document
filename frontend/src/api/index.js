@@ -21,7 +21,10 @@ async function upload(formType, formId, paramKey, paramLabel, file) {
 }
 
 export const api = {
-  nextRunNumber: () => request('GET', '/next_run_number'),
+  nextRunNumber: (year, month) => {
+    const q = year && month ? `?year=${year}&month=${month}` : ''
+    return request('GET', `/next_run_number${q}`)
+  },
   stability: {
     list: () => request('GET', '/stability'),
     get: (id) => request('GET', `/stability/${id}`),
@@ -34,6 +37,7 @@ export const api = {
     get: (id) => request('GET', `/dissolution/${id}`),
     create: (data) => request('POST', '/dissolution', data),
     update: (id, data) => request('PUT', `/dissolution/${id}`, data),
+    patch: (id, data) => request('PATCH', `/dissolution/${id}`, data),
     delete: (id) => request('DELETE', `/dissolution/${id}`),
   },
   uploads: {
@@ -47,6 +51,8 @@ export const api = {
     get: (id) => request('GET', `/quality_check/${id}`),
     create: (data) => request('POST', '/quality_check', data),
     update: (id, data) => request('PUT', `/quality_check/${id}`, data),
+    patch: (id, data) => request('PATCH', `/quality_check/${id}`, data),
     delete: (id) => request('DELETE', `/quality_check/${id}`),
+    lock: (id) => request('PATCH', `/quality_check/${id}`, { locked: true }),
   },
 }

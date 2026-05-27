@@ -5,12 +5,21 @@
         <router-link to="/" class="back-btn">← หน้าหลัก</router-link>
         <span class="form-badge">F-RD-FD-005 REV.00</span>
         <span v-if="editId" class="edit-badge">แก้ไข #{{ editId }}</span>
+        <span v-if="form.locked" class="locked-badge-form">🔒 ล็อคแล้ว</span>
+        <span v-if="editId" :class="['status-badge', `status-${form.status || 'pending'}`]">
+          {{ STATUS_MAP[form.status || 'pending'].label }}
+        </span>
+      </div>
+      <div class="action-right">
+        <button v-if="canAdvance" class="btn-advance" @click="advanceStatus">
+          {{ STATUS_MAP[form.status].nextLabel }}
+        </button>
       </div>
     </div>
 
     <div v-if="toast" class="toast" :class="toast.type">{{ toast.msg }}</div>
 
-    <div class="form-card">
+    <div class="form-card" :class="{ 'form-locked': !isEditable }">
       <!-- Header -->
       <div class="form-header">
         <div class="company-name">T.MAN PHARMA CO., LTD.</div>
@@ -18,10 +27,14 @@
           <div>แบบฟอร์มการตรวจสอบคุณภาพวัตถุดิบและเภสัชภัณฑ์</div>
           <div>ในขั้นตอนการวิจัยและพัฒนา</div>
         </div>
-        <div class="form-number-block">F-RD-FD-005 REV.00</div>
+        <div class="form-number-block">F-RD-FD-005 REV.01</div>
       </div>
 
       <div class="section-title">การตรวจสอบคุณภาพวัตถุดิบและเภสัชภัณฑ์ในขั้นตอนการวิจัยและพัฒนา</div>
+
+      <div v-if="editId && !isEditable" class="lock-notice">
+        🔒 ฟอร์มนี้อยู่ในสถานะ <strong>{{ STATUS_MAP[form.status]?.label }}</strong> — ไม่สามารถแก้ไขได้
+      </div>
 
       <!-- Type selector -->
       <div class="type-selector">
@@ -42,17 +55,17 @@
         <div class="date-fields">
           <div class="field-group">
             <label>วันที่ส่งวิเคราะห์:</label>
-            <DateInput v-model="form.send_date" style="width:160px" />
+            <DateInput v-model="form.send_date" style="width:160px" @update:modelValue="onSendDateChange" />
           </div>
           <div class="field-group">
             <label>เลขที่ใบวิเคราะห์:</label>
             <div class="run-number-group">
               <span class="run-static">RD</span>
-              <input v-model="runYear" type="text" class="run-part" maxlength="2" placeholder="YY" />
+              <input v-model="runYear" type="text" class="run-part run-auto" maxlength="2" placeholder="YY" readonly />
               <span class="run-static">-</span>
-              <input v-model="runSeq" type="text" class="run-part" maxlength="3" placeholder="XX" />
+              <input v-model="runSeq" type="text" class="run-part run-auto" maxlength="3" placeholder="XX" readonly />
               <span class="run-static">/</span>
-              <input v-model="runMonth" type="text" class="run-part" maxlength="2" placeholder="MM" />
+              <input v-model="runMonth" type="text" class="run-part run-auto" maxlength="2" placeholder="MM" readonly />
             </div>
           </div>
         </div>
@@ -102,22 +115,22 @@
       <div class="qc-section-title">ประเภทการวิเคราะห์</div>
       <div class="qc-type-row">
         <label class="checkbox-label">
-          <input type="checkbox" v-model="form.qc_preliminary" />
+          <input type="radio" v-model="form.qc_type" value="formulate" />
           Formulate
         </label>
         <label class="checkbox-label">
-          <input type="checkbox" v-model="form.qc_stability" />
+          <input type="radio" v-model="form.qc_type" value="stability" />
           Stability
         </label>
         <label class="checkbox-label">
-          <input type="checkbox" v-model="form.microbiology_analysis" />
+          <input type="radio" v-model="form.qc_type" value="microbiology" />
           Microbiology Analysis
         </label>
         <label class="checkbox-label">
-          <input type="checkbox" v-model="form.is_other_type" />
+          <input type="radio" v-model="form.qc_type" value="other" />
           Other:
         </label>
-        <input v-if="form.is_other_type" v-model="form.other_type_text" type="text" class="input-field"
+        <input v-if="form.qc_type === 'other'" v-model="form.other_type_text" type="text" class="input-field"
           style="width:140px" placeholder="ระบุ..." />
       </div>
 
@@ -126,36 +139,52 @@
         <div class="param-header-row">
           <span class="param-header-label">หัวข้อในการควบคุมคุณภาพ :</span>
           <div class="param-std-row">
-            <label class="checkbox-label"><input type="checkbox" v-model="form.param_std_usp" />USP</label>
-            <input v-if="form.param_std_usp" v-model="form.param_std_usp_text" type="text"
-              class="input-field std-text-field" placeholder="ระบุ..." />
-            <label class="checkbox-label"><input type="checkbox" v-model="form.param_std_bp" />BP</label>
-            <input v-if="form.param_std_bp" v-model="form.param_std_bp_text" type="text"
-              class="input-field std-text-field" placeholder="ระบุ..." />
-            <label class="checkbox-label"><input type="checkbox" v-model="form.param_std_inhouse" />in-house</label>
-            <input v-if="form.param_std_inhouse" v-model="form.param_std_inhouse_text" type="text"
-              class="input-field std-text-field" placeholder="ระบุ..." />
-            <label class="checkbox-label"><input type="checkbox" v-model="form.param_std_other" />other</label>
-            <input v-if="form.param_std_other" v-model="form.param_std_other_text" type="text"
-              class="input-field std-text-field" placeholder="ระบุ..." />
+            <div class="std-group">
+              <label class="checkbox-label"><input type="checkbox" v-model="form.param_std_usp" />USP</label>
+              <input v-if="form.param_std_usp" v-model="form.param_std_usp_text" type="text"
+                class="input-field std-text-field" placeholder="ระบุ..." />
+            </div>
+            <div class="std-group">
+              <label class="checkbox-label"><input type="checkbox" v-model="form.param_std_bp" />BP</label>
+              <input v-if="form.param_std_bp" v-model="form.param_std_bp_text" type="text"
+                class="input-field std-text-field" placeholder="ระบุ..." />
+            </div>
+            <div class="std-group">
+              <label class="checkbox-label"><input type="checkbox" v-model="form.param_std_inhouse" />in-house</label>
+              <input v-if="form.param_std_inhouse" v-model="form.param_std_inhouse_text" type="text"
+                class="input-field std-text-field" placeholder="ระบุ..." />
+            </div>
+            <div class="std-group">
+              <label class="checkbox-label"><input type="checkbox" v-model="form.param_std_other" />other</label>
+              <input v-if="form.param_std_other" v-model="form.param_std_other_text" type="text"
+                class="input-field std-text-field" placeholder="ระบุ..." />
+            </div>
           </div>
         </div>
         <div class="param-list">
-          <div v-for="param in paramList" :key="param.key" class="param-item">
-            <label class="checkbox-label param-checkbox">
-              <input type="checkbox" v-model="form.params[param.key]" />
-              {{ param.label }}
-            </label>
+          <div v-for="param in paramList" :key="param.key">
+            <div class="param-item">
+              <label class="checkbox-label param-checkbox">
+                <input type="checkbox" v-model="form.params[param.key]" />
+                {{ param.label }}
+              </label>
+              <input
+                v-if="form.params[param.key] && param.key !== 'other'"
+                v-model="form.param_details[param.key]"
+                type="text"
+                class="input-field param-detail-field"
+                placeholder="รายละเอียด..."
+              />
+            </div>
+            <div v-if="param.key === 'other' && form.params.other" class="other-sub-list">
+              <div v-for="(cp, i) in form.custom_params" :key="i" class="param-item">
+                <input v-model="cp.label" type="text" class="input-field param-detail-field"
+                  placeholder="ชื่อหัวข้อ..." />
+                <button class="btn-remove-param no-print" @click="removeCustomParam(i)">✕</button>
+              </div>
+              <button class="btn-add-param no-print" @click="addCustomParam">+ เพิ่มหัวข้อ</button>
+            </div>
           </div>
-          <div v-for="(cp, i) in form.custom_params" :key="i" class="param-item">
-            <label class="checkbox-label param-checkbox">
-              <input type="checkbox" v-model="cp.checked" />
-              <input v-model="cp.label" type="text" class="input-field" style="width:200px"
-                placeholder="ชื่อหัวข้อ..." />
-            </label>
-            <button class="btn-remove-param no-print" @click="removeCustomParam(i)">✕</button>
-          </div>
-          <button class="btn-add-param no-print" @click="addCustomParam">+ เพิ่มหัวข้อ</button>
         </div>
       </div>
 
@@ -171,6 +200,9 @@
         <div class="pdf-section-title">รายงาน PDF จากผู้ทดสอบ</div>
         <div v-for="param in activeParams" :key="param.key" class="pdf-row">
           <span class="pdf-param-name">{{ param.label }}</span>
+          <span v-if="form.param_pass?.[param.key] === true" class="pdf-pass-chip chip-pass">✓ ผ่าน</span>
+          <span v-else-if="form.param_pass?.[param.key] === false" class="pdf-pass-chip chip-fail">✗ ไม่ผ่าน</span>
+          <span v-else class="pdf-pass-chip chip-none">—</span>
           <template v-if="uploadMap[param.key]">
             <span class="pdf-filename">{{ uploadMap[param.key].original_name }}</span>
             <a
@@ -258,7 +290,16 @@
     
     <div class="action-right">
       <button class="btn-secondary" @click="resetForm">เคลียร์ฟอร์ม</button>
-      <button class="btn-primary" :disabled="saving" @click="saveForm">
+      <div class="urgency-group">
+          <label class="urgency-label">ระดับความเร่งด่วน:</label>
+          <select v-model="form.urgency_level" class="urgency-select" :class="urgencyClass">
+            <option value="">-- เลือก --</option>
+            <option value="3">3 สูง (High)</option>
+            <option value="2">2 ปานกลาง (Medium)</option>
+            <option value="1">1 ต่ำ (Low)</option>
+          </select>
+        </div>
+      <button v-if="isEditable" class="btn-primary" :disabled="saving || form.locked" @click="saveForm">
         {{ saving ? 'กำลังบันทึก...' : (editId ? '💾 อัปเดต' : '💾 บันทึก') }}
       </button>
     </div>
@@ -271,6 +312,13 @@ import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api/index.js'
 import { useRole } from '../composables/useRole.js'
 import DateInput from '../components/DateInput.vue'
+
+const STATUS_MAP = {
+  pending:     { label: 'ส่งวิเคราะห์',   next: null,       nextLabel: null          },
+  in_progress: { label: 'กำลังวิเคราะห์', next: null,       nextLabel: null          },
+  pending_rd:  { label: 'รอรับผล',        next: 'complete', nextLabel: 'รับผลแล้ว ✓' }, // legacy
+  complete:    { label: 'รับผลเรียบร้อย', next: null,       nextLabel: null          },
+}
 
 const props = defineProps({ id: String })
 const route = useRoute()
@@ -288,10 +336,17 @@ const uploadMap = computed(() => {
   return map
 })
 
+const urgencyClass = computed(() => {
+  if (form.urgency_level === '3') return 'urgency-high'
+  if (form.urgency_level === '2') return 'urgency-medium'
+  if (form.urgency_level === '1') return 'urgency-low'
+  return ''
+})
+
 const activeParams = computed(() => {
   const standard = paramList.filter(p => form.params?.[p.key])
   const custom = (form.custom_params || [])
-    .filter(cp => cp.checked)
+    .filter(cp => cp.label)
     .map((cp, i) => ({ key: `custom_${i}`, label: cp.label }))
   return [...standard, ...custom]
 })
@@ -303,7 +358,7 @@ const runMonth = ref(String(now.getMonth() + 1).padStart(2, '0'))
 
 watch([runYear, runSeq, runMonth], () => {
   form.analysis_number = runSeq.value
-    ? `RD${runYear.value}-${String(runSeq.value).padStart(2, '0')}/${runMonth.value}`
+    ? `RD${runYear.value}-${String(runSeq.value).padStart(3, '0')}/${runMonth.value}`
     : ''
 })
 
@@ -331,9 +386,12 @@ function blankForm() {
     active_ingredient: '',
     dosage_form: '',
     appearance: '',
+    qc_type: '',
     qc_preliminary: false,
     qc_stability: false,
     microbiology_analysis: false,
+    param_std: '',
+    param_std_text: '',
     param_std_usp: false, param_std_usp_text: '',
     param_std_bp: false, param_std_bp_text: '',
     param_std_inhouse: false, param_std_inhouse_text: '',
@@ -347,10 +405,45 @@ function blankForm() {
     sig_sender: '',
     sig_analyst: '',
     sig_date: '',
+    urgency_level: '',
+    locked: false,
+    status: 'pending',
+    param_pass: {},
   }
 }
 
 const form = reactive(blankForm())
+
+const isEditable = computed(() => !editId.value || form.status === 'pending')
+const canAdvance = computed(() =>
+  !!editId.value && role.value !== 'tester' && !!STATUS_MAP[form.status || 'pending']?.next
+)
+
+async function advanceStatus() {
+  const next = STATUS_MAP[form.status]?.next
+  if (!next || !editId.value) return
+  try {
+    await api.qualityCheck.patch(editId.value, { status: next })
+    form.status = next
+    showToast('อัปเดตสถานะสำเร็จ')
+  } catch {
+    showToast('เกิดข้อผิดพลาด', 'error')
+  }
+}
+
+function onSendDateChange(val) {
+  if (editId.value) return
+  if (!val) return
+  const m = String(val).match(/^(\d{4})-(\d{2})/)
+  if (!m) return
+  const yy = m[1].slice(-2)
+  const mm = m[2]
+  runYear.value = yy
+  runMonth.value = mm
+  api.nextRunNumber(yy, mm).then(r => {
+    runSeq.value = String(r.next_seq).padStart(3, '0')
+  }).catch(() => {})
+}
 
 function resetForm() {
   Object.assign(form, blankForm())
@@ -362,7 +455,7 @@ function resetForm() {
 }
 
 function addCustomParam() {
-  form.custom_params.push({ checked: false, label: '', detail: '' })
+  form.custom_params.push({ label: '' })
 }
 
 function removeCustomParam(i) {
@@ -391,7 +484,7 @@ async function saveForm() {
         try {
           const r = await api.nextRunNumber()
           runYear.value = r.year
-          runSeq.value = String(r.next_seq)
+          runSeq.value = String(r.next_seq).padStart(3, '0')
           runMonth.value = r.month
         } catch { /* leave defaults */ }
       }, 1500)
@@ -413,8 +506,22 @@ onMounted(async () => {
       const res = await api.qualityCheck.get(id)
       editId.value = res.id
       Object.keys(res.form_data).forEach(k => { if (k in form) form[k] = res.form_data[k] })
+      // migrate old param_std radio value back to individual booleans
+      if (form.param_std) {
+        if (form.param_std === 'usp')     { form.param_std_usp = true;    form.param_std_usp_text = form.param_std_text }
+        else if (form.param_std === 'bp') { form.param_std_bp = true;     form.param_std_bp_text = form.param_std_text }
+        else if (form.param_std === 'inhouse') { form.param_std_inhouse = true; form.param_std_inhouse_text = form.param_std_text }
+        else if (form.param_std === 'other')   { form.param_std_other = true;   form.param_std_other_text = form.param_std_text }
+      }
+      // migrate old qc_type booleans to single radio field
+      if (!form.qc_type) {
+        if (form.qc_preliminary)        form.qc_type = 'formulate'
+        else if (form.qc_stability)     form.qc_type = 'stability'
+        else if (form.microbiology_analysis) form.qc_type = 'microbiology'
+        else if (form.is_other_type)    form.qc_type = 'other'
+      }
       const m = form.analysis_number?.match(/^RD(\d{2})-(\d+)\/(\d{2})$/)
-      if (m) { runYear.value = m[1]; runSeq.value = m[2]; runMonth.value = m[3] }
+      if (m) { runYear.value = m[1]; runSeq.value = String(m[2]).padStart(3, '0'); runMonth.value = m[3] }
       uploads.value = await api.uploads.list('quality_check', id)
     } catch {
       showToast('ไม่พบข้อมูล', 'error')
@@ -423,7 +530,7 @@ onMounted(async () => {
     try {
       const r = await api.nextRunNumber()
       runYear.value = r.year
-      runSeq.value = String(r.next_seq)
+      runSeq.value = String(r.next_seq).padStart(3, '0')
       runMonth.value = r.month
     } catch { /* leave defaults */ }
   }
@@ -477,6 +584,54 @@ onMounted(async () => {
   font-weight: 600;
   padding: 3px 10px;
   border-radius: 20px;
+}
+
+.locked-badge-form {
+  background: rgba(0,229,160,0.15);
+  color: var(--c-teal);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+
+/* ── Status ── */
+.status-badge {
+  font-size: 12px; font-weight: 700; padding: 4px 12px;
+  border-radius: 20px; white-space: nowrap;
+}
+.status-pending     { background: #fef3c7; color: #d97706; }
+.status-in_progress { background: #dbeafe; color: #2563eb; }
+.status-pending_rd  { background: #f3e8ff; color: #7c3aed; }
+.status-complete    { background: #d1fae5; color: #059669; }
+
+.btn-advance {
+  padding: 6px 16px; border-radius: 20px;
+  border: 1.5px solid var(--c-teal);
+  background: rgba(0,229,160,0.1); color: var(--c-teal);
+  cursor: pointer; font-size: 13px; font-weight: 600; font-family: inherit;
+  transition: background 0.15s;
+}
+.btn-advance:hover { background: rgba(0,229,160,0.22); }
+
+.lock-notice {
+  background: #fffbeb; border: 1px solid #fcd34d;
+  border-radius: var(--r-sm); padding: 10px 16px;
+  font-size: 13px; color: #92400e; margin-bottom: 16px;
+}
+
+.form-card.form-locked input:not([type="file"]),
+.form-card.form-locked textarea,
+.form-card.form-locked select,
+.form-card.form-locked .checkbox-label {
+  pointer-events: none;
+  opacity: 0.6;
+}
+.form-card.form-locked .btn-add-param,
+.form-card.form-locked .btn-tiny,
+.form-card.form-locked .remove-btn,
+.form-card.form-locked .add-btn {
+  display: none;
 }
 
 .btn-primary {
@@ -630,7 +785,8 @@ onMounted(async () => {
   color: var(--text-label);
 }
 
-.checkbox-label input[type="checkbox"] {
+.checkbox-label input[type="checkbox"],
+.checkbox-label input[type="radio"] {
   width: 16px;
   height: 16px;
   cursor: pointer;
@@ -799,6 +955,12 @@ label {
   border-bottom-color: var(--accent-orange);
 }
 
+.run-auto {
+  color: var(--text3);
+  cursor: default;
+  border-bottom-style: dashed;
+}
+
 .page-input {
   border: none;
   border-bottom: 1px solid var(--border);
@@ -829,7 +991,7 @@ label {
 .param-header-row {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 8px;
   margin-bottom: 12px;
   flex-wrap: wrap;
 }
@@ -843,6 +1005,14 @@ label {
 .param-std-row {
   display: flex;
   gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.std-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .param-list {
@@ -859,7 +1029,7 @@ label {
 }
 
 .param-checkbox {
-  min-width: 260px;
+  min-width: 20px;
 }
 
 .param-detail-field {
@@ -902,6 +1072,17 @@ label {
 
 .btn-remove-param:hover {
   color: #c62828;
+}
+
+.other-sub-list {
+  margin-left: 24px;
+  margin-top: 4px;
+  padding-left: 12px;
+  border-left: 2px dashed var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 4px;
 }
 
 /* ── Result ── */
@@ -1035,6 +1216,61 @@ label {
   font-size: 12px;
   color: var(--text3);
   font-style: italic;
+}
+
+.pdf-pass-chip {
+  font-size: 11px; font-weight: 700;
+  padding: 2px 10px; border-radius: 20px; white-space: nowrap; flex-shrink: 0;
+}
+.chip-pass { background: #d1fae5; color: #065f46; }
+.chip-fail { background: #fee2e2; color: #991b1b; }
+.chip-none { background: var(--surface2); color: var(--text3); }
+
+/* ── Urgency ── */
+.urgency-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.urgency-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-label);
+  white-space: nowrap;
+}
+
+.urgency-select {
+  border: 2px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 5px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  outline: none;
+  background: var(--surface);
+  color: var(--text-primary);
+  transition: border-color 0.2s, background 0.2s, color 0.2s;
+  min-width: 160px;
+}
+
+.urgency-select.urgency-high {
+  border-color: #dc2626;
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.urgency-select.urgency-medium {
+  border-color: #d97706;
+  background: #fffbeb;
+  color: #d97706;
+}
+
+.urgency-select.urgency-low {
+  border-color: #16a34a;
+  background: #f0fdf4;
+  color: #16a34a;
 }
 
 @media print {

@@ -8,11 +8,6 @@
         <span v-if="editId" class="edit-badge">แก้ไข #{{ editId }}</span>
       </div>
       <div class="action-right">
-        <button class="btn-secondary" @click="resetForm">เคลียร์ฟอร์ม</button>
-        <button class="btn-secondary" @click="window.print()">🖨 พิมพ์</button>
-        <button class="btn-primary" :disabled="saving" @click="saveForm">
-          {{ saving ? 'กำลังบันทึก...' : (editId ? '💾 อัปเดต' : '💾 บันทึก') }}
-        </button>
       </div>
     </div>
 
@@ -216,6 +211,21 @@
       </div>
     </div>
   </div>
+  <br>
+  <div class="action-bar no-print">
+    <div class="action-left">
+    </div>
+    <div class="action-right">
+      <!-- read-only mode: save/clear disabled temporarily -->
+      <!-- <button class="btn-secondary" @click="resetForm">เคลียร์ฟอร์ม</button> -->
+      <button class="btn-secondary" @click="window.print()">🖨 พิมพ์</button>
+      <!-- <button class="btn-primary" :disabled="saving" @click="saveForm">
+        {{ saving ? 'กำลังบันทึก...' : (editId ? '💾 อัปเดต' : '💾 บันทึก') }}
+      </button> -->
+    </div>
+  </div>
+  <br>
+  <br>
 </template>
 
 <script setup>

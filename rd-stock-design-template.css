@@ -30,6 +30,17 @@
  *  24. Users Page
  *  25. Utilities
  * ================================================================
+
+ Update check list
+'ส่งวิเคราะห์':        'track-pending',
+    'รอผลการวิเคราะห์':   'track-analyzing',
+    'รอรับผล':             'track-waiting-rd',
+    'รับผลเรียบร้อย':      'track-done',
+    'ปิดแล้ว': 'track-closed', 'รอยืนยัน': 'track-pending',
+    'กำลังวิเคราะห์': 'track-analyzing', 'มีผลแล้ว': 'track-done',
+    'รอผล': 'track-waiting', 'รอวิเคราะห์': 'track-waiting',
+  }
+
  */
 
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap');

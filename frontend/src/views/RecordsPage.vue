@@ -23,12 +23,18 @@
           <span class="tab-count">{{ tab.count }}</span>
         </button>
       </div>
-      <input
-        v-model="search"
-        type="text"
-        class="search-input"
-        placeholder="ค้นหา เลขที่ใบวิเคราะห์ หรือ ชื่อผลิตภัณฑ์..."
-      />
+      <div class="filter-inputs">
+        <input v-model="filterName"   type="text" class="filter-input" placeholder="ค้นหาชื่อ..." />
+        <input v-model="filterNumber" type="text" class="filter-input" placeholder="เลขที่ใบส่งวิเคราะห์..." />
+      </div>
+      <div class="sort-group">
+        <button class="sort-btn" :class="{ 'sort-active': sortField === 'send_date' }" @click="toggleSort('send_date')">
+          วันที่ส่ง <span class="sort-arrow">{{ sortField === 'send_date' ? (sortDir === 'asc' ? '▲' : '▼') : '↕' }}</span>
+        </button>
+        <button class="sort-btn" :class="{ 'sort-active': sortField === 'urgency' }" @click="toggleSort('urgency')">
+          ความเร่งด่วน <span class="sort-arrow">{{ sortField === 'urgency' ? (sortDir === 'asc' ? '▲' : '▼') : '↕' }}</span>
+        </button>
+      </div>
     </div>
 
     <!-- Loading / empty -->
@@ -46,10 +52,13 @@
             <th>ชื่อผลิตภัณฑ์</th>
             <th style="width:100px">Lot No.</th>
             <th style="width:120px">วันที่ส่ง</th>
+            <th style="width:160px">หัวข้อวิเคราะห์</th>
+            <th style="width:92px">ความเร่งด่วน</th>
+            <th style="width:130px">สถานะ</th>
             <th style="width:120px">ผลวิเคราะห์</th>
             <th style="width:140px">ผู้ส่ง / สังเกตโดย</th>
             <th style="width:120px">วันที่สร้าง</th>
-            <th style="width:110px">จัดการ</th>
+            <th style="width:130px">จัดการ</th>
           </tr>
         </thead>
         <tbody>
@@ -69,6 +78,17 @@
             </td>
             <td class="td-mono">{{ r.lot_no || '-' }}</td>
             <td>{{ formatDate(r.send_date) }}</td>
+            <td class="td-params">
+              <template v-if="r._type === 'qc'">{{ getActiveParams(r) }}</template>
+              <span v-else class="td-na">-</span>
+            </td>
+            <td>
+              <span v-if="r._type === 'qc' && r.urgency_level" :class="['urgency-badge', urgencyBadgeClass(r.urgency_level)]">{{ urgencyLabel(r.urgency_level) }}</span>
+              <span v-else class="td-na">-</span>
+            </td>
+            <td>
+              <span :class="['track-badge', trackingClass(r)]">{{ trackingLabel(r) }}</span>
+            </td>
             <td>
               <span v-if="r._type === 'qc' && r.result === 'pass'" class="result-badge badge-pass">ผ่าน</span>
               <span v-else-if="r._type === 'qc' && r.result === 'fail'" class="result-badge badge-fail">ไม่ผ่าน</span>
@@ -85,9 +105,14 @@
             </td>
             <td>{{ formatDate(r.created_at) }}</td>
             <td class="td-actions">
-              <button v-if="r._type === 'qc' && role === 'tester'" class="btn-sm btn-test" @click="router.push(`/quality-check/${r.id}/test`)">ทดสอบ</button>
+              <button v-if="role === 'tester'" class="btn-sm btn-test" @click="router.push(r._type === 'qc' ? `/quality-check/${r.id}/test` : `/dissolution/${r.id}/test`)">ทดสอบ</button>
               <button v-else class="btn-sm btn-view" @click="openRecord(r)">เปิด</button>
-              <button v-if="role !== 'tester'" class="btn-sm btn-del" @click="deleteRecord(r)">ลบ</button>
+              <button
+                v-if="r._type === 'qc' && r.status === 'in_progress' && role !== 'tester'"
+                class="btn-sm btn-lock"
+                @click="acceptResult(r)"
+              >✓ รับผล</button>
+              <button v-if="role !== 'tester' && r.locked != 1" class="btn-sm btn-del" @click="deleteRecord(r)">ลบ</button>
             </td>
           </tr>
         </tbody>
@@ -109,7 +134,10 @@ const qualityCheck = ref([])
 const dissolution = ref([])
 const loading = ref(true)
 const activeTab = ref('all')
-const search = ref('')
+const filterName   = ref('')
+const filterNumber = ref('')
+const sortField    = ref('created_at')
+const sortDir      = ref('desc')
 
 const tabs = computed(() => [
   { key: 'all',        label: 'ทั้งหมด',          cls: 'tab-all',   count: qualityCheck.value.length + dissolution.value.length },
@@ -120,23 +148,48 @@ const tabs = computed(() => [
 const combined = computed(() => {
   const qc = qualityCheck.value.map(r => ({ ...r, _type: 'qc' }))
   const ds = dissolution.value.map(r => ({ ...r, _type: 'dissolution' }))
-  return [...qc, ...ds].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+  return [...qc, ...ds]
 })
 
 const filtered = computed(() => {
   let list = combined.value
   if (activeTab.value === 'qc') list = list.filter(r => r._type === 'qc')
   if (activeTab.value === 'dissolution') list = list.filter(r => r._type === 'dissolution')
-  const q = search.value.trim().toLowerCase()
-  if (!q) return list
-  return list.filter(r =>
-    (r.analysis_number || '').toLowerCase().includes(q) ||
-    (r.product_name || '').toLowerCase().includes(q) ||
-    (r.lot_no || '').toLowerCase().includes(q) ||
-    (r.requester || '').toLowerCase().includes(q) ||
-    (r.sender || '').toLowerCase().includes(q)
+
+  const name = filterName.value.trim().toLowerCase()
+  const num  = filterNumber.value.trim().toLowerCase()
+  if (name) list = list.filter(r =>
+    (r.product_name || '').toLowerCase().includes(name) ||
+    (r.requester   || '').toLowerCase().includes(name) ||
+    (r.sender      || '').toLowerCase().includes(name)
   )
+  if (num) list = list.filter(r =>
+    (r.analysis_number || '').toLowerCase().includes(num)
+  )
+
+  return [...list].sort((a, b) => {
+    let va, vb
+    if (sortField.value === 'send_date') {
+      va = a.send_date || ''; vb = b.send_date || ''
+    } else if (sortField.value === 'urgency') {
+      va = Number(a.urgency_level) || 0; vb = Number(b.urgency_level) || 0
+    } else {
+      va = a.created_at || ''; vb = b.created_at || ''
+    }
+    if (va < vb) return sortDir.value === 'asc' ? -1 : 1
+    if (va > vb) return sortDir.value === 'asc' ?  1 : -1
+    return 0
+  })
 })
+
+function toggleSort(field) {
+  if (sortField.value === field) {
+    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortField.value = field
+    sortDir.value = 'desc'
+  }
+}
 
 async function loadAll() {
   loading.value = true
@@ -164,6 +217,81 @@ async function deleteRecord(r) {
     loadAll()
   } catch {
     alert('เกิดข้อผิดพลาดในการลบ')
+  }
+}
+
+const paramLabels = {
+  assay: 'Assay', identification: 'Identification', appearance: 'Appearance',
+  dissolution: 'Dissolution', ph: 'pH', microbial: 'Microbial', other: 'Other',
+}
+
+function parseJSON(val) {
+  if (!val) return null
+  if (typeof val === 'object') return val
+  try { return JSON.parse(val) } catch { return null }
+}
+
+function getActiveParams(r) {
+  const params = parseJSON(r.params)
+  if (!params) return '-'
+  const active = Object.entries(params).filter(([, v]) => v).map(([k]) => paramLabels[k] || k)
+  const custom = parseJSON(r.custom_params)
+  if (Array.isArray(custom)) custom.filter(cp => cp.label).forEach(cp => active.push(cp.label))
+  return active.length > 0 ? active.join(', ') : '-'
+}
+
+function urgencyLabel(level) {
+  if (level == 3) return 'สูง'
+  if (level == 2) return 'ปานกลาง'
+  if (level == 1) return 'ต่ำ'
+  return '-'
+}
+
+function urgencyBadgeClass(level) {
+  if (level == 3) return 'urgency-high'
+  if (level == 2) return 'urgency-medium'
+  if (level == 1) return 'urgency-low'
+  return ''
+}
+
+const STATUS_LABEL = {
+  pending:     'ส่งวิเคราะห์',
+  in_progress: 'กำลังวิเคราะห์',
+  pending_rd:  'รอรับผล',
+  complete:    'รับผลเรียบร้อย',
+}
+
+function trackingLabel(r) {
+  if (r.status && STATUS_LABEL[r.status]) return STATUS_LABEL[r.status]
+  if (r.locked == 1) return 'ปิดแล้ว'
+  if (r._type === 'qc') {
+    if (r.result) return 'รอยืนยัน'
+    if (r.upload_count > 0) return 'กำลังวิเคราะห์'
+    return 'รอวิเคราะห์'
+  }
+  return r.f2_result ? 'มีผลแล้ว' : 'รอผล'
+}
+
+function trackingClass(r) {
+  const map = {
+    'ส่งวิเคราะห์':        'track-pending',
+    'รอผลการวิเคราะห์':   'track-analyzing',
+    'รอรับผล':             'track-waiting-rd',
+    'รับผลเรียบร้อย':      'track-done',
+    'ปิดแล้ว': 'track-closed', 'รอยืนยัน': 'track-pending',
+    'กำลังวิเคราะห์': 'track-analyzing', 'มีผลแล้ว': 'track-done',
+    'รอผล': 'track-waiting', 'รอวิเคราะห์': 'track-waiting',
+  }
+  return map[trackingLabel(r)] || 'track-waiting'
+}
+
+async function acceptResult(r) {
+  if (!confirm(`ยืนยันการรับผลรายการ #${r.id}?\nสถานะจะเปลี่ยนเป็น "รับผลเรียบร้อย" และไม่สามารถแก้ไขได้`)) return
+  try {
+    await api.qualityCheck.patch(r.id, { status: 'complete' })
+    await loadAll()
+  } catch {
+    alert('เกิดข้อผิดพลาด')
   }
 }
 
@@ -223,15 +351,27 @@ onMounted(loadAll)
 .tab-btn.active .tab-count { background: rgba(0,0,0,0.15); }
 .tab-btn:not(.active) .tab-count { background: var(--surface2); color: var(--text3); }
 
-.search-input {
-  flex: 1; min-width: 240px; max-width: 420px;
+.filter-inputs { display: flex; gap: 8px; flex-wrap: wrap; }
+.filter-input {
+  min-width: 180px; max-width: 260px;
   border: 1.5px solid var(--border); border-radius: var(--r-sm);
-  padding: 8px 14px; font-size: 14px; font-family: inherit;
+  padding: 7px 12px; font-size: 13px; font-family: inherit;
   background: var(--surface); color: var(--text); outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: border-color 0.2s;
 }
-.search-input:focus { border-color: var(--c-teal); box-shadow: 0 0 0 3px rgba(0,229,160,0.12); }
-.search-input::placeholder { color: var(--text3); }
+.filter-input:focus { border-color: var(--c-teal); box-shadow: 0 0 0 3px rgba(0,229,160,0.10); }
+.filter-input::placeholder { color: var(--text3); }
+.sort-group { display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; }
+.sort-btn {
+  padding: 6px 14px; border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: var(--surface); color: var(--text2);
+  cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600;
+  transition: all 0.15s; white-space: nowrap;
+}
+.sort-btn:hover { border-color: var(--c-teal); color: var(--text); }
+.sort-btn.sort-active { background: var(--c-teal); color: var(--c-dark); border-color: var(--c-teal); }
+.sort-arrow { font-size: 10px; opacity: 0.8; }
 
 /* ── State messages ── */
 .state-msg {
@@ -317,4 +457,39 @@ onMounted(loadAll)
 .btn-test:hover { background: rgba(52,211,153,0.12); }
 .btn-del  { color: var(--c-red); border-color: var(--c-red); }
 .btn-del:hover { background: #fff1f2; }
+.btn-lock { color: var(--c-teal); border-color: var(--c-teal); }
+.btn-lock:hover { background: rgba(0,229,160,0.1); }
+
+/* ── New columns ── */
+.td-params {
+  max-width: 160px; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; font-size: 12px; color: var(--text2);
+}
+.td-na { color: var(--text3); }
+
+.urgency-badge {
+  font-size: 11px; font-weight: 700; padding: 3px 9px;
+  border-radius: 20px; white-space: nowrap;
+}
+.urgency-high   { background: #fef2f2; color: #dc2626; }
+.urgency-medium { background: #fffbeb; color: #d97706; }
+.urgency-low    { background: #f0fdf4; color: #16a34a; }
+
+.track-badge {
+  font-size: 11px; font-weight: 600; padding: 3px 9px;
+  border-radius: 20px; white-space: nowrap;
+}
+.track-waiting    { background: var(--surface2);           color: var(--text3); }
+.track-analyzing  { background: #eff6ff;                   color: #2563eb; }
+.track-pending    { background: #fffbeb;                   color: #d97706; }
+.track-waiting-rd { background: #f3e8ff;                   color: #7c3aed; }
+.track-done       { background: var(--accent-green-light); color: var(--accent-green); }
+.track-closed     { background: rgba(0,229,160,0.15);      color: var(--c-teal); font-weight: 700; }
+
+.locked-badge {
+  display: inline-block; font-size: 11px; font-weight: 700;
+  padding: 3px 9px; border-radius: 20px;
+  background: rgba(0,229,160,0.15); color: var(--c-teal);
+  white-space: nowrap; margin-right: 4px;
+}
 </style>

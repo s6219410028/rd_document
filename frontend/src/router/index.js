@@ -4,6 +4,7 @@ import StabilityProgramPage from '../views/StabilityProgramPage.vue'
 import DissolutionProfilePage from '../views/DissolutionProfilePage.vue'
 import QualityCheckPage from '../views/QualityCheckPage.vue'
 import TesterQualityCheckPage from '../views/TesterQualityCheckPage.vue'
+import TesterDissolutionPage from '../views/TesterDissolutionPage.vue'
 import RecordsPage from '../views/RecordsPage.vue'
 
 const routes = [
@@ -13,6 +14,7 @@ const routes = [
   { path: '/stability/:id', component: StabilityProgramPage, props: true },
   { path: '/dissolution', component: DissolutionProfilePage },
   { path: '/dissolution/:id', component: DissolutionProfilePage, props: true },
+  { path: '/dissolution/:id/test', component: TesterDissolutionPage, props: true },
   { path: '/quality-check', component: QualityCheckPage },
   { path: '/quality-check/:id', component: QualityCheckPage, props: true },
   { path: '/quality-check/:id/test', component: TesterQualityCheckPage, props: true },
