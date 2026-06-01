@@ -14,6 +14,9 @@
         <button v-if="canAdvance" class="btn-advance" @click="advanceStatus">
           {{ STATUS_MAP[form.status].nextLabel }}
         </button>
+        <button v-if="editId && form.status === 'complete'" class="btn-print no-print" @click="printForm">
+          🖨 พิมพ์
+        </button>
       </div>
     </div>
 
@@ -77,7 +80,7 @@
           <label class="field-label">ชื่อผลิตภัณฑ์:</label>
           <input v-model="form.product_name" type="text" class="input-field flex-1" />
           <label style="margin-left:16px">Lot No.:</label>
-          <input v-model="form.lot_no" type="text" class="input-field" style="width:140px" />
+          <input v-model="form.lot_no" type="text" class="input-field"  />
           <label style="margin-left:16px">Mfd.:</label>
           <DateInput v-model="form.mfd" style="width:160px" />
         </div>
@@ -178,8 +181,9 @@
             </div>
             <div v-if="param.key === 'other' && form.params.other" class="other-sub-list">
               <div v-for="(cp, i) in form.custom_params" :key="i" class="param-item">
-                <input v-model="cp.label" type="text" class="input-field param-detail-field"
-                  placeholder="ชื่อหัวข้อ..." />
+                <input v-show="!isPrinting" v-model="cp.label" type="text"
+                  class="input-field param-detail-field" placeholder="ชื่อหัวข้อ..." />
+                <span v-show="isPrinting" class="custom-param-text">— {{ cp.label }}</span>
                 <button class="btn-remove-param no-print" @click="removeCustomParam(i)">✕</button>
               </div>
               <button class="btn-add-param no-print" @click="addCustomParam">+ เพิ่มหัวข้อ</button>
@@ -307,10 +311,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api/index.js'
-import { useRole } from '../composables/useRole.js'
+import { useAuth } from '../composables/useAuth.js'
 import DateInput from '../components/DateInput.vue'
 
 const STATUS_MAP = {
@@ -323,11 +327,12 @@ const STATUS_MAP = {
 const props = defineProps({ id: String })
 const route = useRoute()
 const router = useRouter()
-const { role } = useRole()
+const { role } = useAuth()
 
-const saving = ref(false)
-const toast = ref(null)
-const editId = ref(null)
+const saving     = ref(false)
+const isPrinting = ref(false)
+const toast      = ref(null)
+const editId     = ref(null)
 const uploads = ref([])
 
 const uploadMap = computed(() => {
@@ -344,10 +349,12 @@ const urgencyClass = computed(() => {
 })
 
 const activeParams = computed(() => {
-  const standard = paramList.filter(p => form.params?.[p.key])
-  const custom = (form.custom_params || [])
-    .filter(cp => cp.label)
-    .map((cp, i) => ({ key: `custom_${i}`, label: cp.label }))
+  const customParams = (form.custom_params || []).filter(cp => cp.label)
+  const standard = paramList.filter(p => {
+    if (p.key === 'other') return form.params?.[p.key] && customParams.length === 0
+    return form.params?.[p.key]
+  })
+  const custom = customParams.map((cp, i) => ({ key: `custom_${i}`, label: cp.label }))
   return [...standard, ...custom]
 })
 
@@ -460,6 +467,13 @@ function addCustomParam() {
 
 function removeCustomParam(i) {
   form.custom_params.splice(i, 1)
+}
+
+async function printForm() {
+  isPrinting.value = true
+  await nextTick()
+  window.addEventListener('afterprint', () => { isPrinting.value = false }, { once: true })
+  window.print()
 }
 
 function showToast(msg, type = 'success') {
@@ -808,7 +822,6 @@ onMounted(async () => {
   font-weight: 600;
   font-size: 14px;
   white-space: nowrap;
-  min-width: 140px;
   padding-top: 6px;
   color: var(--text-label);
 }
@@ -1085,6 +1098,12 @@ label {
   padding-bottom: 4px;
 }
 
+.custom-param-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
 /* ── Result ── */
 .result-section {
   margin-bottom: 16px;
@@ -1273,17 +1292,150 @@ label {
   color: #16a34a;
 }
 
+/* ── Print button ── */
+.btn-print {
+  padding: 7px 18px;
+  border-radius: 20px;
+  border: 1.5px solid #6366f1;
+  background: rgba(99,102,241,0.08);
+  color: #6366f1;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.btn-print:hover { background: rgba(99,102,241,0.18); }
+
+/* ── Print layout ── */
 @media print {
+  @page { size: A4; margin: 14mm 14mm; }
+
   .form-card {
-    padding: 12px;
-    box-shadow: none;
-    background: white;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    background: #fff !important;
   }
 
-  * {
-    color: black !important;
-    background: white !important;
-    border-color: #333 !important;
+  /* Form header grid keeps its border */
+  .form-header {
+    border: 2px solid #333 !important;
   }
+  .company-name       { border-right: 2px solid #333 !important; color: #000 !important; background: #fff !important; }
+  .form-title-block   { border-right: 2px solid #333 !important; color: #000 !important; background: #fff !important; }
+  .form-number-block  { color: #000 !important; background: #fff !important; }
+  .section-title      { border: 2px solid #333 !important; border-top: none !important; color: #000 !important; background: #fff !important; }
+
+  /* All text */
+  * { color: #000 !important; }
+
+  /* Backgrounds — white except intentional chips */
+  .type-selector,
+  .param-section,
+  .qc-section-title,
+  .surface,
+  .bg-section { background: #fff !important; border-color: #ccc !important; }
+
+  /* Inputs show as underlined text */
+  input:not([type="checkbox"]):not([type="radio"]),
+  .run-part {
+    border: none !important;
+    border-bottom: 1px solid #666 !important;
+    background: transparent !important;
+    color: #000 !important;
+    border-radius: 0 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  textarea {
+    border: 1px solid #888 !important;
+    background: transparent !important;
+    color: #000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  select {
+    border: none !important;
+    border-bottom: 1px solid #666 !important;
+    background: transparent !important;
+    color: #000 !important;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  /* Checkboxes and radios stay visible */
+  input[type="checkbox"], input[type="radio"] {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Result chips keep colour */
+  .result-text.pass {
+    background: #e8f5e9 !important;
+    color: #2e7d32 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .result-text.fail {
+    background: #ffebee !important;
+    color: #c62828 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .result-text.result-pending { background: #f3f4f6 !important; color: #6b7280 !important; }
+
+  /* Pass/fail chips on param rows */
+  .chip-pass { background: #d1fae5 !important; color: #065f46 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .chip-fail { background: #fee2e2 !important; color: #991b1b !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  /* Locked form: remove opacity so values print clearly */
+  .form-card.form-locked input,
+  .form-card.form-locked textarea,
+  .form-card.form-locked select,
+  .form-card.form-locked .checkbox-label { opacity: 1 !important; }
+
+  /* Remove lock-notice banner */
+  .lock-notice { display: none !important; }
+
+  /* Dividers */
+  .divider { border-top: 1px solid #999 !important; }
+
+  /* Param section border */
+  .param-section { border: 1px solid #ccc !important; }
+
+  /* QC section title bar */
+  .qc-section-title { border-left: 3px solid #333 !important; background: #f5f5f5 !important; }
+
+  /* Sub-section stripe */
+  .sub-section-title { background: #f0f9f0 !important; border-left: 3px solid #333 !important; }
+
+  /* Keep the dashed indent border visible */
+  .other-sub-list { border-left: 2px solid #999 !important; }
+  .custom-param-text { color: #000 !important; }
+
+  /* Keep product-id row (ชื่อผลิตภัณฑ์ / Lot No. / Mfd.) on one line */
+  .product-id-section .field-row { flex-wrap: nowrap !important; }
+
+  /* Shrink DateInput wrappers to auto-width so inline style doesn't overflow */
+  :deep(.dp-wrap) { width: auto !important; }
+
+  /* ── Font size: -3px across print layout ── */
+  .company-name, .form-title-block, .section-title,
+  .qc-section-title, .sub-section-title, .details-title,
+  .param-header-label, .run-static,
+  input:not([type="checkbox"]):not([type="radio"]),
+  select, textarea, label, .checkbox-label,
+  .readonly-row, .readonly-label                   { font-size: 11px !important; }
+  .detail-label, .custom-param-text, .urgency-label { font-size: 10px !important; }
+  .result-title, .result-text                      { font-size: 12px !important; }
+  .detail-bullet                                   { font-size: 15px !important; }
+  .form-number-block                               { font-size: 9px !important; }
+  .pdf-pass-chip                                   { font-size: 8px !important; }
 }
 </style>

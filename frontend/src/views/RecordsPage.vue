@@ -125,10 +125,10 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api/index.js'
-import { useRole } from '../composables/useRole.js'
+import { useAuth } from '../composables/useAuth.js'
 
 const router = useRouter()
-const { role } = useRole()
+const { role } = useAuth()
 
 const qualityCheck = ref([])
 const dissolution = ref([])

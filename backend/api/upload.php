@@ -1,6 +1,14 @@
 <?php
-$db = getDB();
+try {
+    $db = getDB();
+} catch (Throwable $e) {
+    jsonResponse(['error' => 'DB connect failed: ' . $e->getMessage()], 500);
+}
+
 $uploadDir = __DIR__ . '/../uploads/';
+if (!is_dir($uploadDir)) {
+    mkdir($uploadDir, 0755, true);
+}
 
 switch ($method) {
     case 'GET':
@@ -22,40 +30,51 @@ switch ($method) {
             jsonResponse(['error' => 'Missing required fields or file'], 400);
         }
         $file = $_FILES['file'];
-        if ($file['error'] !== UPLOAD_ERR_OK) jsonResponse(['error' => 'File upload error: ' . $file['error']], 400);
+        if ($file['error'] !== UPLOAD_ERR_OK) jsonResponse(['error' => 'File upload error code: ' . $file['error']], 400);
 
         $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
         if (!in_array($ext, ['pdf', 'jpg', 'jpeg'])) jsonResponse(['error' => 'Only PDF or JPEG files are allowed'], 400);
 
-        // Replace existing upload for same form + param
-        $stmt = $db->prepare("SELECT filename FROM uploads WHERE form_type=? AND form_id=? AND param_key=?");
-        $stmt->execute([$formType, (int)$formId, $paramKey]);
-        $existing = $stmt->fetch();
-        if ($existing) {
-            @unlink($uploadDir . $existing['filename']);
-            $db->prepare("DELETE FROM uploads WHERE form_type=? AND form_id=? AND param_key=?")->execute([$formType, (int)$formId, $paramKey]);
+        try {
+            $stmt = $db->prepare("SELECT filename FROM uploads WHERE form_type=? AND form_id=? AND param_key=?");
+            $stmt->execute([$formType, (int)$formId, $paramKey]);
+            $existing = $stmt->fetch();
+            if ($existing) {
+                @unlink($uploadDir . $existing['filename']);
+                $db->prepare("DELETE FROM uploads WHERE form_type=? AND form_id=? AND param_key=?")->execute([$formType, (int)$formId, $paramKey]);
+            }
+        } catch (Throwable $e) {
+            jsonResponse(['error' => 'DB query failed: ' . $e->getMessage()], 500);
         }
 
         $filename = uniqid("{$formType}_{$formId}_{$paramKey}_") . '.' . $ext;
         if (!move_uploaded_file($file['tmp_name'], $uploadDir . $filename)) {
-            jsonResponse(['error' => 'Failed to save file'], 500);
+            jsonResponse(['error' => 'move_uploaded_file failed. uploadDir: ' . $uploadDir . ' writable: ' . (is_writable($uploadDir) ? 'yes' : 'no')], 500);
         }
 
-        $stmt = $db->prepare("INSERT INTO uploads (form_type, form_id, param_key, param_label, filename, original_name) VALUES (?,?,?,?,?,?)");
-        $stmt->execute([$formType, (int)$formId, $paramKey, $paramLabel, $filename, $file['name']]);
-        jsonResponse(['id' => $db->lastInsertId(), 'filename' => $filename, 'original_name' => $file['name']], 201);
+        try {
+            $stmt = $db->prepare("INSERT INTO uploads (form_type, form_id, param_key, param_label, filename, original_name) VALUES (?,?,?,?,?,?)");
+            $stmt->execute([$formType, (int)$formId, $paramKey, $paramLabel, $filename, $file['name']]);
+            jsonResponse(['id' => $db->lastInsertId(), 'filename' => $filename, 'original_name' => $file['name']], 201);
+        } catch (Throwable $e) {
+            jsonResponse(['error' => 'DB insert failed: ' . $e->getMessage()], 500);
+        }
         break;
 
     case 'DELETE':
         if ($id === null) jsonResponse(['error' => 'ID required'], 400);
-        $stmt = $db->prepare("SELECT filename FROM uploads WHERE id = ?");
-        $stmt->execute([$id]);
-        $row = $stmt->fetch();
-        if ($row) {
-            @unlink($uploadDir . $row['filename']);
-            $db->prepare("DELETE FROM uploads WHERE id = ?")->execute([$id]);
+        try {
+            $stmt = $db->prepare("SELECT filename FROM uploads WHERE id = ?");
+            $stmt->execute([$id]);
+            $row = $stmt->fetch();
+            if ($row) {
+                @unlink($uploadDir . $row['filename']);
+                $db->prepare("DELETE FROM uploads WHERE id = ?")->execute([$id]);
+            }
+            jsonResponse(['message' => 'Deleted']);
+        } catch (Throwable $e) {
+            jsonResponse(['error' => 'Delete failed: ' . $e->getMessage()], 500);
         }
-        jsonResponse(['message' => 'Deleted']);
         break;
 
     default:

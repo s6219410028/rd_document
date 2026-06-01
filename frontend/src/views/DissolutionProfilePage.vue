@@ -13,6 +13,9 @@
         <button v-if="canAdvance" class="btn-advance" @click="advanceStatus">
           {{ STATUS_MAP[form.status].nextLabel }}
         </button>
+        <button v-if="editId && form.status === 'complete'" class="btn-print no-print" @click="printForm">
+          🖨 พิมพ์
+        </button>
       </div>
     </div>
 
@@ -274,7 +277,7 @@
 import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { api } from '../api/index.js'
-import { useRole } from '../composables/useRole.js'
+import { useAuth } from '../composables/useAuth.js'
 import DateInput from '../components/DateInput.vue'
 
 const STATUS_MAP = {
@@ -343,7 +346,7 @@ function blankForm() {
 }
 
 const form = reactive(blankForm())
-const { role } = useRole()
+const { role } = useAuth()
 
 const isEditable = computed(() => !editId.value || form.status === 'pending')
 const canAdvance = computed(() =>
@@ -399,6 +402,10 @@ function addOriginalProduct() {
 
 function removeOriginalProduct(i) {
   form.original_products.splice(i, 1)
+}
+
+function printForm() {
+  window.print()
 }
 
 function showToast(msg, type = 'success') {
@@ -1013,17 +1020,106 @@ label {
   color: #16a34a;
 }
 
+/* ── Print button ── */
+.btn-print {
+  padding: 7px 18px;
+  border-radius: 20px;
+  border: 1.5px solid #6366f1;
+  background: rgba(99,102,241,0.08);
+  color: #6366f1;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.btn-print:hover { background: rgba(99,102,241,0.18); }
+
+/* ── Print layout ── */
 @media print {
+  @page { size: A4; margin: 14mm 14mm; }
+
   .form-card {
-    padding: 12px;
-    box-shadow: none;
-    background: white;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    background: #fff !important;
   }
 
-  * {
-    color: black !important;
-    background: white !important;
-    border-color: #333 !important;
+  /* Form header grid keeps its border */
+  .form-header {
+    border: 2px solid #333 !important;
   }
+  .company-name      { border-right: 2px solid #333 !important; color: #000 !important; background: #fff !important; }
+  .form-title-block  { border-right: 2px solid #333 !important; color: #000 !important; background: #fff !important; }
+  .form-number-block { color: #000 !important; background: #fff !important; }
+
+  /* All text black */
+  * { color: #000 !important; }
+
+  /* Inputs show as underlined text */
+  input:not([type="checkbox"]):not([type="radio"]),
+  .run-part {
+    border: none !important;
+    border-bottom: 1px solid #666 !important;
+    background: transparent !important;
+    color: #000 !important;
+    border-radius: 0 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  textarea {
+    border: 1px solid #888 !important;
+    background: transparent !important;
+    color: #000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  select {
+    border: none !important;
+    border-bottom: 1px solid #666 !important;
+    background: transparent !important;
+    color: #000 !important;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  /* Checkboxes and radios stay visible */
+  input[type="checkbox"], input[type="radio"] {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Condition box keeps border */
+  .condition-box { border: 2px solid #ccc !important; background: #fff !important; }
+
+  /* Section title bars */
+  .sub-section-title { background: #f0f9f0 !important; border-left: 3px solid #333 !important; }
+
+  /* Locked form: remove dim so values print clearly */
+  .form-card.form-locked input,
+  .form-card.form-locked textarea,
+  .form-card.form-locked select,
+  .form-card.form-locked .checkbox-label { opacity: 1 !important; }
+
+  /* Remove lock-notice banner */
+  .lock-notice { display: none !important; }
+
+  /* Dividers */
+  .divider { border-top: 1px solid #999 !important; }
+
+  /* ── Font size: -3px across print layout ── */
+  .company-name, .sub-section-title, .run-static,
+  input:not([type="checkbox"]):not([type="radio"]),
+  select, textarea, .checkbox-label,
+  .result-label                                    { font-size: 11px !important; }
+  label                                            { font-size: 10px !important; }
+  .form-title-block                                { font-size: 12px !important; }
+  .form-number-block                               { font-size: 10px !important; }
 }
 </style>

@@ -231,13 +231,13 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { api } from '../api/index.js'
-import { useRole } from '../composables/useRole.js'
+import { useAuth } from '../composables/useAuth.js'
 
 const URGENCY_LABELS = { '3': 'สูง (High)', '2': 'ปานกลาง (Medium)', '1': 'ต่ำ (Low)' }
 
 const props = defineProps({ id: String })
 const route = useRoute()
-const { role } = useRole()
+const { role } = useAuth()
 
 const formId = computed(() => props.id || route.params.id)
 const loading = ref(true)

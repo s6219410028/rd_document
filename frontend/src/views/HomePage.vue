@@ -236,12 +236,12 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { api } from '../api/index.js'
-import { useRole } from '../composables/useRole.js'
+import { useAuth } from '../composables/useAuth.js'
 
 const stability = ref([])
 const dissolution = ref([])
 const qualityCheck = ref([])
-const { role } = useRole()
+const { role } = useAuth()
 
 const qcFilterName   = ref('')
 const qcFilterNumber = ref('')
@@ -310,8 +310,16 @@ function qcProgress(r) {
   if (typeof params === 'string') { try { params = JSON.parse(params) } catch { params = {} } }
   let customParams = r.custom_params
   if (typeof customParams === 'string') { try { customParams = JSON.parse(customParams) } catch { customParams = [] } }
-  const total = (params ? Object.values(params).filter(Boolean).length : 0)
-              + ((customParams || []).filter(cp => cp.checked).length)
+  const validCustom = (customParams || []).filter(cp => cp.label)
+  // appearance is text-only (no file), exclude it from upload progress
+  const standardCount = params
+    ? Object.entries(params).filter(([k, v]) => v && k !== 'appearance' && k !== 'other').length
+    : 0
+  // 'other' expands to individual custom params when present, or counts as 1 generic slot
+  const otherCount = params?.other
+    ? (validCustom.length > 0 ? validCustom.length : 1)
+    : 0
+  const total = standardCount + otherCount
   const uploaded = Number(r.upload_count) || 0
   return { uploaded, total, pct: total > 0 ? Math.min(100, Math.round((uploaded / total) * 100)) : 0 }
 }

@@ -205,12 +205,12 @@
 import { ref, computed, reactive, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { api } from '../api/index.js'
-import { useRole } from '../composables/useRole.js'
+import { useAuth } from '../composables/useAuth.js'
 import DateInput from '../components/DateInput.vue'
 
 const props = defineProps({ id: String })
 const route = useRoute()
-const { role } = useRole()
+const { role } = useAuth()
 
 const STATUS_LABELS = {
   pending:     'ส่งวิเคราะห์',
@@ -246,10 +246,12 @@ const paramList = [
 const activeParams = computed(() => {
   if (!form.value) return []
   const f = form.value
-  const standard = paramList.filter(p => f.params?.[p.key])
-  const custom = (f.custom_params || [])
-    .filter(cp => cp.checked)
-    .map((cp, i) => ({ key: `custom_${i}`, label: cp.label }))
+  const customParams = (f.custom_params || []).filter(cp => cp.label)
+  const standard = paramList.filter(p => {
+    if (p.key === 'other') return f.params?.[p.key] && customParams.length === 0
+    return f.params?.[p.key]
+  })
+  const custom = customParams.map((cp, i) => ({ key: `custom_${i}`, label: cp.label }))
   return [...standard, ...custom]
 })
 

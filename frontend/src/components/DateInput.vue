@@ -447,4 +447,20 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onOutsideClick))
 .dp-today-btn:hover { background: rgba(0,229,160,.2); }
 .dp-clear-btn { background: none; color: var(--dp-muted); border-color: var(--dp-border); }
 .dp-clear-btn:hover { background: rgba(239,68,68,.08); color: #ef4444; border-color: rgba(239,68,68,.3); }
+
+@media print {
+  .dp-popup  { display: none !important; }
+  .dp-cal-icon, .dp-clear-x { display: none !important; }
+  .dp-field {
+    min-width: 0 !important;
+    padding: 2px 2px !important;
+    border: none !important;
+    border-bottom: 1px solid #666 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    width: auto !important;
+  }
+  .dp-display { font-size: 11px !important; }
+}
 </style>

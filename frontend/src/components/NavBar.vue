@@ -38,26 +38,25 @@
         </span>
       </router-link>
 
-      <!-- <router-link to="/stability" class="nav-item" active-class="nav-active">
-        <span class="nav-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-        </span>
-        <span class="nav-label">
-          Stability
-          <small>F-RD-FD-012</small>
-        </span>
-      </router-link> -->
-
-      <router-link to="/records" class="nav-item" active-class="nav-active">
+<router-link to="/records" class="nav-item" active-class="nav-active">
         <span class="nav-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
         </span>
         <span class="nav-label">ข้อมูลทั้งหมด</span>
       </router-link>
+
+      <!-- Admin only -->
+      <router-link v-if="isAdmin" to="/users" class="nav-item" active-class="nav-active">
+        <span class="nav-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </span>
+        <span class="nav-label">จัดการผู้ใช้</span>
+      </router-link>
     </nav>
 
     <!-- Bottom area -->
     <div class="sidebar-bottom">
+      <!-- Theme toggle -->
       <button class="theme-toggle" @click="darkMode.toggle()" :title="darkMode.isDark.value ? 'Light Mode' : 'Dark Mode'">
         <span class="nav-icon">
           <svg v-if="darkMode.isDark.value" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
@@ -66,39 +65,55 @@
         <span class="nav-label">{{ darkMode.isDark.value ? 'Light Mode' : 'Dark Mode' }}</span>
       </button>
 
-      <div class="role-section">
-        <template v-if="!role">
-          <div class="role-prompt">เลือกบทบาท</div>
-          <div class="role-btns">
-            <button class="role-btn role-sender" @click="switchRole('sender')">📤 ผู้ส่ง</button>
-            <button class="role-btn role-tester" @click="switchRole('tester')">🔬 ผู้ทดสอบ</button>
+      <!-- Admin role switcher -->
+      <div v-if="isAdmin" class="role-switcher">
+        <div class="role-switcher-label">มุมมอง</div>
+        <div class="role-switcher-btns">
+          <button
+            :class="['rs-btn', activeRole === 'sender' ? 'rs-active-sender' : '']"
+            @click="setActiveRole('sender')"
+          >📤 ผู้ส่ง</button>
+          <button
+            :class="['rs-btn', activeRole === 'tester' ? 'rs-active-tester' : '']"
+            @click="setActiveRole('tester')"
+          >🔬 ผู้ทดสอบ</button>
+        </div>
+      </div>
+
+      <!-- User info + logout -->
+      <div v-if="user" class="user-section">
+        <div class="user-row">
+          <div class="user-avatar" :class="`avatar-${user.role}`">
+            {{ user.display_name.charAt(0).toUpperCase() }}
           </div>
-        </template>
-        <template v-else>
-          <div class="role-user">
-            <div class="role-avatar" :class="role === 'sender' ? 'avatar-sender' : 'avatar-tester'">
-              {{ role === 'sender' ? 'S' : 'T' }}
-            </div>
-            <div class="role-info">
-              <span class="role-name">{{ role === 'sender' ? 'ผู้ส่ง' : 'ผู้ทดสอบ' }}</span>
-              <button class="role-switch" @click="clearRole">เปลี่ยนบทบาท →</button>
-            </div>
+          <div class="user-info">
+            <span class="user-name">{{ user.display_name }}</span>
+            <span class="user-role">{{ ROLE_LABELS[user.role] }}</span>
           </div>
-        </template>
+        </div>
+        <button class="logout-btn" @click="handleLogout">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          ออกจากระบบ
+        </button>
       </div>
     </div>
   </aside>
 </template>
 
 <script setup>
+import { useRouter } from 'vue-router'
 import { useDarkMode } from '../composables/useDarkMode.js'
-import { useRole } from '../composables/useRole.js'
-const darkMode = useDarkMode()
-const { role, setRole, clearRole } = useRole()
+import { useAuth }     from '../composables/useAuth.js'
 
-function switchRole(newRole) {
-  setRole(newRole)
-  window.location.reload()
+const darkMode = useDarkMode()
+const { user, isAdmin, activeRole, setActiveRole, logout } = useAuth()
+const router = useRouter()
+
+const ROLE_LABELS = { admin: 'Admin', sender: 'ผู้ส่ง', tester: 'ผู้ทดสอบ' }
+
+async function handleLogout() {
+  await logout()
+  router.replace('/login')
 }
 </script>
 
@@ -142,36 +157,14 @@ function switchRole(newRole) {
   flex-shrink: 0;
 }
 
-.brand-text {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-}
-
-.brand-name {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--sb-brand-name);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: color 0.25s;
-}
-
-.brand-sub {
-  font-size: 10px;
-  color: var(--sb-brand-sub);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: color 0.25s;
-}
+.brand-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.brand-name { font-size: 13px; font-weight: 700; color: var(--sb-brand-name); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color 0.25s; }
+.brand-sub  { font-size: 10px; color: var(--sb-brand-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color 0.25s; }
 
 /* ── Nav ── */
 .sidebar-nav {
   flex: 1;
-  padding: 10px 10px;
+  padding: 10px;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -191,46 +184,14 @@ function switchRole(newRole) {
   cursor: pointer;
   border-left: 3px solid transparent;
 }
+.nav-item:hover        { background: var(--sb-hover-bg); color: var(--sb-text-hover); }
+.nav-item.nav-active   { background: var(--sb-active-bg); color: var(--sb-active-text); border-left-color: var(--sb-active-border); }
 
-.nav-item:hover {
-  background: var(--sb-hover-bg);
-  color: var(--sb-text-hover);
-}
+.nav-icon { width: 18px; height: 18px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.nav-icon svg { width: 16px; height: 16px; stroke: currentColor; }
 
-.nav-item.nav-active {
-  background: var(--sb-active-bg);
-  color: var(--sb-active-text);
-  border-left-color: var(--sb-active-border);
-}
-
-.nav-icon {
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.nav-icon svg {
-  width: 16px;
-  height: 16px;
-  stroke: currentColor;
-}
-
-.nav-label {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  line-height: 1.2;
-  min-width: 0;
-}
-
-.nav-label small {
-  font-size: 10px;
-  opacity: 0.55;
-  font-weight: 400;
-}
+.nav-label { display: flex; flex-direction: column; gap: 1px; line-height: 1.2; min-width: 0; }
+.nav-label small { font-size: 10px; opacity: 0.55; font-weight: 400; }
 
 /* ── Bottom ── */
 .sidebar-bottom {
@@ -257,66 +218,50 @@ function switchRole(newRole) {
   transition: background 0.15s, color 0.15s;
   text-align: left;
 }
-
-.theme-toggle:hover {
-  background: var(--sb-hover-bg);
-  color: var(--sb-text-hover);
-}
-
+.theme-toggle:hover { background: var(--sb-hover-bg); color: var(--sb-text-hover); }
 .theme-toggle .nav-icon { color: currentColor; }
 
-/* ── Role section ── */
-.role-section {
-  padding: 8px 6px 2px;
-}
+/* ── Admin role switcher ── */
+.role-switcher { padding: 6px 6px 0; }
+.role-switcher-label { font-size: 10px; color: var(--sb-bottom-text); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
 
-.role-prompt {
-  font-size: 11px;
-  color: var(--sb-bottom-text);
-  margin-bottom: 6px;
-}
+.role-switcher-btns { display: flex; gap: 4px; }
 
-.role-btns {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.role-btn {
-  padding: 6px 10px;
+.rs-btn {
+  flex: 1;
+  padding: 5px 6px;
   border-radius: 6px;
   border: 1px solid var(--sb-role-border);
   background: var(--sb-role-bg);
   color: var(--sb-text);
-  font-size: 12px;
+  font-size: 11px;
   font-family: inherit;
   cursor: pointer;
   font-weight: 500;
-  text-align: left;
+  text-align: center;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
-.role-sender:hover {
-  background: rgba(251,146,60,0.15);
-  border-color: rgba(251,146,60,0.5);
-  color: #f97316;
+.rs-active-sender { background: rgba(251,146,60,0.15); border-color: rgba(251,146,60,0.5); color: #f97316; }
+.rs-active-tester { background: rgba(99,102,241,0.15); border-color: rgba(99,102,241,0.5); color: #6366f1; }
+
+/* ── User info ── */
+.user-section {
+  padding: 6px 6px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.role-tester:hover {
-  background: rgba(99,102,241,0.15);
-  border-color: rgba(99,102,241,0.5);
-  color: #6366f1;
-}
-
-.role-user {
+.user-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
-.role-avatar {
-  width: 34px;
-  height: 34px;
+.user-avatar {
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -325,46 +270,29 @@ function switchRole(newRole) {
   font-weight: 700;
   flex-shrink: 0;
 }
+.avatar-admin  { background: rgba(99,102,241,0.15); color: #6366f1; border: 1px solid rgba(99,102,241,0.35); }
+.avatar-sender { background: rgba(251,146,60,0.15);  color: #f97316; border: 1px solid rgba(251,146,60,0.35); }
+.avatar-tester { background: rgba(16,185,129,0.15);  color: #10b981; border: 1px solid rgba(16,185,129,0.35); }
 
-.avatar-sender {
-  background: rgba(251,146,60,0.15);
-  color: #f97316;
-  border: 1px solid rgba(251,146,60,0.35);
-}
+.user-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.user-name { font-size: 12px; font-weight: 600; color: var(--sb-text-hover); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color 0.25s; }
+.user-role { font-size: 10px; color: var(--sb-bottom-text); }
 
-.avatar-tester {
-  background: rgba(99,102,241,0.15);
-  color: #6366f1;
-  border: 1px solid rgba(99,102,241,0.35);
-}
-
-.role-info {
+.logout-btn {
   display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-}
-
-.role-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--sb-text-hover);
-  transition: color 0.25s;
-}
-
-.role-switch {
-  font-size: 11px;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 7px;
+  background: transparent;
+  border: 1px solid var(--sb-role-border);
   color: var(--sb-bottom-text);
-  background: none;
-  border: none;
-  cursor: pointer;
+  font-size: 12px;
   font-family: inherit;
-  padding: 0;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
   text-align: left;
-  transition: color 0.15s;
 }
-
-.role-switch:hover {
-  color: var(--sb-text-hover);
-}
+.logout-btn:hover { background: rgba(239,68,68,0.08); color: #ef4444; border-color: rgba(239,68,68,0.3); }
 </style>
