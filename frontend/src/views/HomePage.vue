@@ -74,22 +74,35 @@
         </div>
         <div v-if="qualityCheck.length === 0" class="empty">ยังไม่มีข้อมูล</div>
         <template v-else>
+          <div class="tbl-scroll">
           <table class="data-table">
             <thead>
               <tr>
-                <th>ID</th>
+                <th style="width:50px">ID</th>
+                <th style="width:140px">เลขที่ใบวิเคราะห์</th>
                 <th>ชื่อผลิตภัณฑ์</th>
+                <th style="width:100px">Lot No.</th>
+                <th style="width:120px">วันที่ส่ง</th>
+                <th style="width:130px">ประเภทการวิเคราะห์</th>
+                <th style="width:160px">หัวข้อวิเคราะห์</th>
                 <th style="width:110px">PDF อัปโหลด</th>
-                <th style="width:90px">ความเร่งด่วน</th>
+                <th style="width:92px">ความเร่งด่วน</th>
                 <th style="width:130px">สถานะ</th>
-                <th>วันที่สร้าง</th>
-                <th>จัดการ</th>
+                <th style="width:120px">ผลวิเคราะห์</th>
+                <th style="width:140px">ผู้ส่ง</th>
+                <th style="width:120px">วันที่สร้าง</th>
+                <th style="width:160px">จัดการ</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="r in filteredQualityCheck" :key="r.id">
                 <td>#{{ r.id }}</td>
+                <td class="td-mono">{{ r.analysis_number || '-' }}</td>
                 <td>{{ r.product_name || '-' }}</td>
+                <td class="td-mono">{{ r.lot_no || '-' }}</td>
+                <td>{{ formatDate(r.send_date) }}</td>
+                <td><span v-if="r.qc_type" :class="['qc-type-badge', `qct-${r.qc_type}`]">{{ qcTypeLabel(r.qc_type) }}</span><span v-else class="td-na">-</span></td>
+                <td class="td-params">{{ getActiveParams(r) }}</td>
                 <td class="td-progress">
                   <template v-if="qcProgressMap[r.id]?.total > 0">
                     <div class="prog-label">
@@ -110,22 +123,32 @@
                   <span v-if="urgencyLabel(r.urgency_level)" :class="['urg-badge', urgencyClass(r.urgency_level)]">{{ urgencyLabel(r.urgency_level) }}</span>
                   <span v-else class="td-na">-</span>
                 </td>
-                <td><span :class="['st-badge', statusInfo(r).cls]">{{ statusInfo(r).label }}</span></td>
+                <td>
+                  <span :class="['st-badge', statusInfo(r).cls]">{{ statusInfo(r).label }}</span>
+                  <div v-if="r.status_changed_at" class="status-ts">{{ formatDateTime(r.status_changed_at) }}</div>
+                </td>
+                <td>
+                  <span v-if="r.result === 'pass'" class="result-badge badge-pass">ผ่าน</span>
+                  <span v-else-if="r.result === 'fail'" class="result-badge badge-fail">ไม่ผ่าน</span>
+                  <span v-else class="td-na">-</span>
+                </td>
+                <td>{{ r.requester || '-' }}</td>
                 <td>{{ formatDate(r.created_at) }}</td>
                 <td>
                   <button v-if="role === 'tester'" class="btn-sm btn-test" @click.stop="$router.push(`/quality-check/${r.id}/test`)">ทดสอบ</button>
                   <template v-else>
                     <button class="btn-sm btn-view" @click.stop="$router.push(`/quality-check/${r.id}`)">เปิด</button>
-                    <button v-if="r.status === 'in_progress'" class="btn-sm btn-accept" @click.stop="acceptQcResult(r.id)">✓ รับผล</button>
+                    <button v-if="r.status === 'in_progress' && qcProgressMap[r.id]?.pct === 100 && r.result" class="btn-sm btn-accept" @click.stop="acceptQcResult(r.id)">✓ รับผล</button>
                     <button class="btn-sm btn-del" @click.stop="deleteRecord('qualityCheck', r.id)">ลบ</button>
                   </template>
                 </td>
               </tr>
               <tr v-if="filteredQualityCheck.length === 0">
-                <td colspan="7" class="empty">ไม่พบรายการที่ค้นหา</td>
+                <td colspan="14" class="empty">ไม่พบรายการที่ค้นหา</td>
               </tr>
             </tbody>
           </table>
+          </div>
         </template>
       </div>
 
@@ -155,26 +178,51 @@
         </div>
         <div v-if="dissolution.length === 0" class="empty">ยังไม่มีข้อมูล</div>
         <template v-else>
+          <div class="tbl-scroll">
           <table class="data-table">
             <thead>
               <tr>
-                <th>ID</th>
-                <th>เลขที่ใบส่งวิเคราะห์</th>
-                <th style="width:90px">ความเร่งด่วน</th>
+                <th style="width:50px">ID</th>
+                <th style="width:140px">เลขที่ใบวิเคราะห์</th>
+                <th>ชื่อผลิตภัณฑ์</th>
+                <th style="width:100px">Lot No.</th>
+                <th style="width:120px">วันที่ส่ง</th>
+                <th style="width:130px">ประเภทการวิเคราะห์</th>
+                <th style="width:92px">ความเร่งด่วน</th>
                 <th style="width:130px">สถานะ</th>
-                <th>วันที่สร้าง</th>
-                <th>จัดการ</th>
+                <th style="width:120px">ผลวิเคราะห์</th>
+                <th style="width:140px">ผู้ส่ง / สังเกตโดย</th>
+                <th style="width:120px">วันที่สร้าง</th>
+                <th style="width:160px">จัดการ</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="r in filteredDissolution" :key="r.id">
                 <td>#{{ r.id }}</td>
-                <td>{{ r.analysis_number || '-' }}</td>
+                <td class="td-mono">{{ r.analysis_number || '-' }}</td>
+                <td>
+                  {{ r.product_name || '-' }}
+                  <span v-if="r.our_products_count > 1" class="multi-badge">+{{ r.our_products_count - 1 }}</span>
+                </td>
+                <td class="td-mono">{{ r.lot_no || '-' }}</td>
+                <td>{{ formatDate(r.send_date) }}</td>
+                <td><span class="qc-type-badge qct-formulate">Formulate</span></td>
                 <td>
                   <span v-if="urgencyLabel(r.urgency_level)" :class="['urg-badge', urgencyClass(r.urgency_level)]">{{ urgencyLabel(r.urgency_level) }}</span>
                   <span v-else class="td-na">-</span>
                 </td>
-                <td><span :class="['st-badge', statusInfo(r).cls]">{{ statusInfo(r).label }}</span></td>
+                <td>
+                  <span :class="['st-badge', statusInfo(r).cls]">{{ statusInfo(r).label }}</span>
+                  <div v-if="r.status_changed_at" class="status-ts">{{ formatDateTime(r.status_changed_at) }}</div>
+                </td>
+                <td>
+                  <span v-if="r.f2_result" class="f2-val">F₂ = {{ r.f2_result }}</span>
+                  <span v-else class="td-na">-</span>
+                </td>
+                <td>
+                  <div>{{ r.sender || '-' }}</div>
+                  <div v-if="r.observed_by" class="sub-text">สังเกต: {{ r.observed_by }}</div>
+                </td>
                 <td>{{ formatDate(r.created_at) }}</td>
                 <td>
                   <button v-if="role === 'tester'" class="btn-sm btn-test" @click.stop="$router.push(`/dissolution/${r.id}/test`)">ทดสอบ</button>
@@ -185,10 +233,11 @@
                 </td>
               </tr>
               <tr v-if="filteredDissolution.length === 0">
-                <td colspan="6" class="empty">ไม่พบรายการที่ค้นหา</td>
+                <td colspan="12" class="empty">ไม่พบรายการที่ค้นหา</td>
               </tr>
             </tbody>
           </table>
+          </div>
         </template>
       </div>
 
@@ -305,6 +354,34 @@ const filteredStability = computed(() => {
   return stability.value.filter(r => (r.product_name || '').toLowerCase().includes(q))
 })
 
+function qcTypeLabel(type) {
+  if (type === 'formulate')   return 'Formulate'
+  if (type === 'stability')   return 'Stability'
+  if (type === 'microbiology') return 'Microbiology'
+  if (type === 'other')       return 'Other'
+  return '-'
+}
+
+function parseJSON(val) {
+  if (!val) return null
+  if (typeof val === 'object') return val
+  try { return JSON.parse(val) } catch { return null }
+}
+
+const paramLabels = {
+  assay: 'Assay', identification: 'Identification', appearance: 'Appearance',
+  dissolution: 'Dissolution', ph: 'pH', microbial: 'Microbial', other: 'Other',
+}
+
+function getActiveParams(r) {
+  const params = parseJSON(r.params)
+  if (!params) return '-'
+  const active = Object.entries(params).filter(([, v]) => v).map(([k]) => paramLabels[k] || k)
+  const custom = parseJSON(r.custom_params)
+  if (Array.isArray(custom)) custom.filter(cp => cp.label).forEach(cp => active.push(cp.label))
+  return active.length > 0 ? active.join(', ') : '-'
+}
+
 function qcProgress(r) {
   let params = r.params
   if (typeof params === 'string') { try { params = JSON.parse(params) } catch { params = {} } }
@@ -371,6 +448,13 @@ function formatDate(dt) {
   const d = new Date(dt)
   if (isNaN(d.getTime())) return '-'
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
+}
+
+function formatDateTime(dt) {
+  if (!dt) return null
+  const m = String(dt).match(/^(\d{4})-(\d{2})-(\d{2})[\sT](\d{2}):(\d{2})/)
+  if (m) return `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}`
+  return null
 }
 
 const STATUS_INFO = {
@@ -666,6 +750,9 @@ onMounted(loadAll)
   text-align: center;
 }
 
+/* ── Table scroll wrapper ── */
+.tbl-scroll { overflow-x: auto; }
+
 /* ── Table ── */
 .data-table {
   width: 100%;
@@ -707,6 +794,10 @@ onMounted(loadAll)
 }
 
 /* ── Action buttons ── */
+.data-table td:last-child {
+  white-space: nowrap;
+}
+
 .btn-sm {
   padding: 4px 12px;
   border: 1px solid var(--border);
@@ -757,6 +848,23 @@ onMounted(loadAll)
 .urg-low    { background: #f0fdf4; color: #16a34a; }
 .td-na      { color: var(--text3); font-size: 12px; }
 
+/* ── QC type badges ── */
+.qc-type-badge { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 20px; white-space: nowrap; display: inline-block; }
+.qct-formulate   { background: #e0e7ff; color: #3730a3; }
+.qct-stability   { background: #f3e8ff; color: #7c3aed; }
+.qct-microbiology { background: #d1fae5; color: #065f46; }
+.qct-other       { background: var(--surface2); color: var(--text2); }
+
+/* ── Result badges ── */
+.result-badge { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
+.badge-pass { background: var(--result-pass-bg); color: var(--result-pass-text); }
+.badge-fail { background: var(--result-fail-bg); color: var(--result-fail-text); }
+.f2-val { font-size: 13px; font-weight: 600; color: var(--c-teal); }
+.td-mono { font-family: 'Courier New', monospace; font-size: 13px; font-weight: 600; color: var(--text); }
+.td-params { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--text2); }
+.multi-badge { display: inline-block; margin-left: 5px; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 10px; background: var(--accent-green-light); color: var(--accent-green); vertical-align: middle; }
+.sub-text { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
 /* ── QC upload progress bar ── */
 .td-progress { min-width: 100px; }
 .prog-label {
@@ -773,6 +881,9 @@ onMounted(loadAll)
 }
 .prog-fill.prog-done { background: var(--accent-green); }
 .prog-none { font-size: 12px; color: var(--text3); }
+
+/* ── Status changed-at timestamp ── */
+.status-ts { font-size: 11px; color: var(--text3); margin-top: 3px; white-space: nowrap; }
 
 /* ── Table filter bar ── */
 .tbl-filter-bar {

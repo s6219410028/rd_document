@@ -9,6 +9,7 @@
         <span v-if="editId" :class="['status-badge', `status-${form.status || 'pending'}`]">
           {{ STATUS_MAP[form.status || 'pending'].label }}
         </span>
+        <span v-if="editId && statusChangedAt" class="status-ts-inline">{{ formatDateTime(statusChangedAt) }}</span>
       </div>
       <div class="action-right">
         <button v-if="canAdvance" class="btn-advance" @click="advanceStatus">
@@ -40,21 +41,17 @@
       </div>
 
       <!-- Type selector -->
-      <div class="type-selector">
+      <div class="type-selector" :class="{ 'selector-error': formErrors.materialType }">
+        <span class="selector-label">ประเภท <span class="req">*</span></span>
         <label class="checkbox-label">
-          <input type="checkbox" v-model="form.is_raw_material" />
+          <input type="radio" v-model="materialType" value="raw_material" />
           วัตถุดิบ
         </label>
         <label class="checkbox-label">
-          <input type="checkbox" v-model="form.is_pharmaceutical" />
+          <input type="radio" v-model="materialType" value="pharmaceutical" />
           เภสัชภัณฑ์
         </label>
-        <!-- <label class="checkbox-label">
-          <input type="checkbox" v-model="form.is_other_type" />
-          Other:
-        </label> -->
-        <input v-if="form.is_other_type" v-model="form.other_type_text" type="text" class="input-field"
-          style="width:140px" placeholder="ระบุ..." />
+        <span v-if="formErrors.materialType" class="field-error">{{ formErrors.materialType }}</span>
         <div class="date-fields">
           <div class="field-group">
             <label>วันที่ส่งวิเคราะห์:</label>
@@ -115,7 +112,9 @@
       <hr class="divider" />
 
       <!-- Quality check section -->
-      <div class="qc-section-title">ประเภทการวิเคราะห์</div>
+      <div class="qc-section-title" :class="{ 'section-title-error': formErrors.qcType }">
+        ประเภทการวิเคราะห์ <span class="req">*</span>
+      </div>
       <div class="qc-type-row">
         <label class="checkbox-label">
           <input type="radio" v-model="form.qc_type" value="formulate" />
@@ -136,11 +135,12 @@
         <input v-if="form.qc_type === 'other'" v-model="form.other_type_text" type="text" class="input-field"
           style="width:140px" placeholder="ระบุ..." />
       </div>
+      <span v-if="formErrors.qcType" class="field-error">{{ formErrors.qcType }}</span>
 
       <!-- Quality control parameters -->
       <div class="param-section">
         <div class="param-header-row">
-          <span class="param-header-label">หัวข้อในการควบคุมคุณภาพ :</span>
+          <span class="param-header-label">หัวข้อในการควบคุมคุณภาพ : <span class="req">*</span></span>
           <div class="param-std-row">
             <div class="std-group">
               <label class="checkbox-label"><input type="checkbox" v-model="form.param_std_usp" />USP</label>
@@ -191,6 +191,7 @@
           </div>
         </div>
       </div>
+      <span v-if="formErrors.params" class="field-error" style="margin-bottom:8px;display:block">{{ formErrors.params }}</span>
 
       <div class="field-row" style="margin:8px 0">
         <label class="field-label">ผู้ส่งวิเคราะห์:</label>
@@ -319,8 +320,8 @@ import DateInput from '../components/DateInput.vue'
 
 const STATUS_MAP = {
   pending:     { label: 'ส่งวิเคราะห์',   next: null,       nextLabel: null          },
-  in_progress: { label: 'กำลังวิเคราะห์', next: null,       nextLabel: null          },
-  pending_rd:  { label: 'รอรับผล',        next: 'complete', nextLabel: 'รับผลแล้ว ✓' }, // legacy
+  in_progress: { label: 'กำลังวิเคราะห์', next: 'complete', nextLabel: 'รับผล ✓'     },
+  pending_rd:  { label: 'รอรับผล',        next: 'complete', nextLabel: 'รับผลแล้ว ✓' },
   complete:    { label: 'รับผลเรียบร้อย', next: null,       nextLabel: null          },
 }
 
@@ -334,6 +335,8 @@ const isPrinting = ref(false)
 const toast      = ref(null)
 const editId     = ref(null)
 const uploads = ref([])
+const statusChangedAt = ref(null)
+const formErrors = reactive({ materialType: '', qcType: '', params: '' })
 
 const uploadMap = computed(() => {
   const map = {}
@@ -346,6 +349,18 @@ const urgencyClass = computed(() => {
   if (form.urgency_level === '2') return 'urgency-medium'
   if (form.urgency_level === '1') return 'urgency-low'
   return ''
+})
+
+const materialType = computed({
+  get() {
+    if (form.is_raw_material) return 'raw_material'
+    if (form.is_pharmaceutical) return 'pharmaceutical'
+    return ''
+  },
+  set(val) {
+    form.is_raw_material = val === 'raw_material'
+    form.is_pharmaceutical = val === 'pharmaceutical'
+  }
 })
 
 const activeParams = computed(() => {
@@ -422,8 +437,18 @@ function blankForm() {
 const form = reactive(blankForm())
 
 const isEditable = computed(() => !editId.value || form.status === 'pending')
+
+const allNonAppearanceUploaded = computed(() => {
+  const nonAppearance = activeParams.value.filter(p => p.key !== 'appearance')
+  if (nonAppearance.length === 0) return true
+  return nonAppearance.every(p => !!uploadMap.value[p.key])
+})
+
 const canAdvance = computed(() =>
-  !!editId.value && role.value !== 'tester' && !!STATUS_MAP[form.status || 'pending']?.next
+  !!editId.value &&
+  role.value !== 'tester' &&
+  !!STATUS_MAP[form.status || 'pending']?.next &&
+  allNonAppearanceUploaded.value
 )
 
 async function advanceStatus() {
@@ -432,6 +457,7 @@ async function advanceStatus() {
   try {
     await api.qualityCheck.patch(editId.value, { status: next })
     form.status = next
+    statusChangedAt.value = new Date().toISOString().replace('T', ' ').slice(0, 16) + ':00'
     showToast('อัปเดตสถานะสำเร็จ')
   } catch {
     showToast('เกิดข้อผิดพลาด', 'error')
@@ -476,12 +502,40 @@ async function printForm() {
   window.print()
 }
 
+function formatDateTime(dt) {
+  if (!dt) return null
+  const m = String(dt).match(/^(\d{4})-(\d{2})-(\d{2})[\sT](\d{2}):(\d{2})/)
+  if (m) return `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}`
+  return null
+}
+
 function showToast(msg, type = 'success') {
   toast.value = { msg, type }
   setTimeout(() => { toast.value = null }, 3000)
 }
 
+function validateForm() {
+  formErrors.materialType = ''
+  formErrors.qcType = ''
+  formErrors.params = ''
+  let valid = true
+  if (!materialType.value) {
+    formErrors.materialType = 'กรุณาเลือกประเภท'
+    valid = false
+  }
+  if (!form.qc_type) {
+    formErrors.qcType = 'กรุณาเลือกประเภทการวิเคราะห์'
+    valid = false
+  }
+  if (!paramList.some(p => form.params[p.key])) {
+    formErrors.params = 'กรุณาเลือกหัวข้อในการควบคุมคุณภาพอย่างน้อย 1 หัวข้อ'
+    valid = false
+  }
+  return valid
+}
+
 async function saveForm() {
+  if (!validateForm()) return
   if (editId.value) {
     if (!confirm(`ยืนยันการบันทึกทับข้อมูลรายการ #${editId.value}?\nข้อมูลเดิมจะถูกแทนที่และไม่สามารถกู้คืนได้`)) return
   }
@@ -519,6 +573,7 @@ onMounted(async () => {
     try {
       const res = await api.qualityCheck.get(id)
       editId.value = res.id
+      statusChangedAt.value = res.status_changed_at || null
       Object.keys(res.form_data).forEach(k => { if (k in form) form[k] = res.form_data[k] })
       // migrate old param_std radio value back to individual booleans
       if (form.param_std) {
@@ -618,6 +673,7 @@ onMounted(async () => {
 .status-in_progress { background: #dbeafe; color: #2563eb; }
 .status-pending_rd  { background: #f3e8ff; color: #7c3aed; }
 .status-complete    { background: #d1fae5; color: #059669; }
+.status-ts-inline   { font-size: 11px; color: var(--text3); white-space: nowrap; }
 
 .btn-advance {
   padding: 6px 16px; border-radius: 20px;
@@ -766,6 +822,33 @@ onMounted(async () => {
   border-top: none;
   margin-bottom: 16px;
   color: var(--text-label);
+}
+
+/* ── Required / validation ── */
+.req {
+  color: #dc2626;
+  font-size: 13px;
+  font-weight: 700;
+}
+.field-error {
+  color: #dc2626;
+  font-size: 12px;
+  font-weight: 500;
+  margin-top: 4px;
+}
+.selector-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-label);
+  white-space: nowrap;
+}
+.selector-error {
+  border-color: #dc2626 !important;
+  background: #fff5f5 !important;
+}
+.section-title-error {
+  border-left-color: #dc2626 !important;
+  color: #dc2626 !important;
 }
 
 /* ── Type selector ── */

@@ -83,11 +83,12 @@
               <span v-else class="td-na">-</span>
             </td>
             <td>
-              <span v-if="r._type === 'qc' && r.urgency_level" :class="['urgency-badge', urgencyBadgeClass(r.urgency_level)]">{{ urgencyLabel(r.urgency_level) }}</span>
+              <span v-if="r.urgency_level" :class="['urgency-badge', urgencyBadgeClass(r.urgency_level)]">{{ urgencyLabel(r.urgency_level) }}</span>
               <span v-else class="td-na">-</span>
             </td>
             <td>
               <span :class="['track-badge', trackingClass(r)]">{{ trackingLabel(r) }}</span>
+              <div v-if="r.status_changed_at" class="status-ts">{{ formatDateTime(r.status_changed_at) }}</div>
             </td>
             <td>
               <span v-if="r._type === 'qc' && r.result === 'pass'" class="result-badge badge-pass">ผ่าน</span>
@@ -108,7 +109,7 @@
               <button v-if="role === 'tester'" class="btn-sm btn-test" @click="router.push(r._type === 'qc' ? `/quality-check/${r.id}/test` : `/dissolution/${r.id}/test`)">ทดสอบ</button>
               <button v-else class="btn-sm btn-view" @click="openRecord(r)">เปิด</button>
               <button
-                v-if="r._type === 'qc' && r.status === 'in_progress' && role !== 'tester'"
+                v-if="r._type === 'qc' && r.status === 'in_progress' && role !== 'tester' && qcProgressMap[r.id]?.pct === 100 && r.result"
                 class="btn-sm btn-lock"
                 @click="acceptResult(r)"
               >✓ รับผล</button>
@@ -225,6 +226,29 @@ const paramLabels = {
   dissolution: 'Dissolution', ph: 'pH', microbial: 'Microbial', other: 'Other',
 }
 
+function qcProgress(r) {
+  let params = r.params
+  if (typeof params === 'string') { try { params = JSON.parse(params) } catch { params = {} } }
+  let customParams = r.custom_params
+  if (typeof customParams === 'string') { try { customParams = JSON.parse(customParams) } catch { customParams = [] } }
+  const validCustom = (customParams || []).filter(cp => cp.label)
+  const standardCount = params
+    ? Object.entries(params).filter(([k, v]) => v && k !== 'appearance' && k !== 'other').length
+    : 0
+  const otherCount = params?.other
+    ? (validCustom.length > 0 ? validCustom.length : 1)
+    : 0
+  const total = standardCount + otherCount
+  const uploaded = Number(r.upload_count) || 0
+  return { uploaded, total, pct: total > 0 ? Math.min(100, Math.round((uploaded / total) * 100)) : 100 }
+}
+
+const qcProgressMap = computed(() => {
+  const map = {}
+  qualityCheck.value.forEach(r => { map[r.id] = qcProgress(r) })
+  return map
+})
+
 function parseJSON(val) {
   if (!val) return null
   if (typeof val === 'object') return val
@@ -302,6 +326,13 @@ function formatDate(dt) {
   const d = new Date(dt)
   if (isNaN(d.getTime())) return '-'
   return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`
+}
+
+function formatDateTime(dt) {
+  if (!dt) return null
+  const m = String(dt).match(/^(\d{4})-(\d{2})-(\d{2})[\sT](\d{2}):(\d{2})/)
+  if (m) return `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}`
+  return null
 }
 
 onMounted(loadAll)
@@ -485,6 +516,7 @@ onMounted(loadAll)
 .track-waiting-rd { background: #f3e8ff;                   color: #7c3aed; }
 .track-done       { background: var(--accent-green-light); color: var(--accent-green); }
 .track-closed     { background: rgba(0,229,160,0.15);      color: var(--c-teal); font-weight: 700; }
+.status-ts { font-size: 11px; color: var(--text3); margin-top: 3px; white-space: nowrap; }
 
 .locked-badge {
   display: inline-block; font-size: 11px; font-weight: 700;

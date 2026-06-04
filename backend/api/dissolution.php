@@ -9,9 +9,13 @@ switch ($method) {
             $row = $stmt->fetch();
             if (!$row) jsonResponse(['error' => 'Not found'], 404);
             $row['form_data'] = json_decode($row['form_data'], true);
+            $curStatus = $row['form_data']['status'] ?? 'pending';
+            $logStmt = $db->prepare("SELECT changed_at FROM status_log WHERE form_type='dissolution' AND form_id=? AND status=? ORDER BY changed_at DESC LIMIT 1");
+            $logStmt->execute([$id, $curStatus]);
+            $row['status_changed_at'] = $logStmt->fetchColumn() ?: $row['created_at'];
             jsonResponse($row);
         } else {
-            $stmt = $db->query("SELECT id, JSON_UNQUOTE(JSON_EXTRACT(form_data,'$.analysis_number')) as analysis_number, JSON_UNQUOTE(JSON_EXTRACT(form_data,'$.our_products[0].product_name')) as product_name, JSON_UNQUOTE(JSON_EXTRACT(form_data,'$.our_products[0].lot_no')) as lot_no, JSON_UNQUOTE(JSON_EXTRACT(form_data,'$.send_date')) as send_date, JSON_UNQUOTE(JSON_EXTRACT(form_data,'$.f2_result')) as f2_result, JSON_UNQUOTE(JSON_EXTRACT(form_data,'$.sender')) as sender, JSON_UNQUOTE(JSON_EXTRACT(form_data,'$.observed_by')) as observed_by, COALESCE(JSON_LENGTH(JSON_EXTRACT(form_data,'$.our_products')),1) as our_products_count, COALESCE(JSON_LENGTH(JSON_EXTRACT(form_data,'$.original_products')),1) as original_products_count, COALESCE(JSON_UNQUOTE(JSON_EXTRACT(form_data,'$.status')), 'pending') as status, JSON_UNQUOTE(JSON_EXTRACT(form_data,'$.urgency_level')) as urgency_level, created_at FROM dissolution_forms ORDER BY created_at DESC");
+            $stmt = $db->query("SELECT id, JSON_UNQUOTE(JSON_EXTRACT(form_data,'$.analysis_number')) as analysis_number, JSON_UNQUOTE(JSON_EXTRACT(form_data,'$.our_products[0].product_name')) as product_name, JSON_UNQUOTE(JSON_EXTRACT(form_data,'$.our_products[0].lot_no')) as lot_no, JSON_UNQUOTE(JSON_EXTRACT(form_data,'$.send_date')) as send_date, JSON_UNQUOTE(JSON_EXTRACT(form_data,'$.f2_result')) as f2_result, JSON_UNQUOTE(JSON_EXTRACT(form_data,'$.sender')) as sender, JSON_UNQUOTE(JSON_EXTRACT(form_data,'$.observed_by')) as observed_by, COALESCE(JSON_LENGTH(JSON_EXTRACT(form_data,'$.our_products')),1) as our_products_count, COALESCE(JSON_LENGTH(JSON_EXTRACT(form_data,'$.original_products')),1) as original_products_count, COALESCE(JSON_UNQUOTE(JSON_EXTRACT(form_data,'$.status')), 'pending') as status, JSON_UNQUOTE(JSON_EXTRACT(form_data,'$.urgency_level')) as urgency_level, created_at, COALESCE((SELECT changed_at FROM status_log WHERE form_type='dissolution' AND form_id=dissolution_forms.id AND status=COALESCE(JSON_UNQUOTE(JSON_EXTRACT(form_data,'$.status')),'pending') ORDER BY changed_at DESC LIMIT 1), created_at) as status_changed_at FROM dissolution_forms ORDER BY created_at DESC");
             jsonResponse($stmt->fetchAll());
         }
         break;
@@ -21,7 +25,9 @@ switch ($method) {
         if (empty($data)) jsonResponse(['error' => 'No data'], 400);
         $stmt = $db->prepare("INSERT INTO dissolution_forms (form_data) VALUES (?)");
         $stmt->execute([json_encode($data, JSON_UNESCAPED_UNICODE)]);
-        jsonResponse(['id' => $db->lastInsertId(), 'message' => 'Saved'], 201);
+        $newId = $db->lastInsertId();
+        $db->prepare("INSERT INTO status_log (form_type, form_id, status) VALUES ('dissolution', ?, 'pending')")->execute([$newId]);
+        jsonResponse(['id' => $newId, 'message' => 'Saved'], 201);
         break;
 
     case 'PUT':
@@ -39,6 +45,7 @@ switch ($method) {
             $valid = ['pending', 'in_progress', 'pending_rd', 'complete'];
             if (!in_array($patch['status'], $valid)) jsonResponse(['error' => 'Invalid status'], 400);
             $db->prepare("UPDATE dissolution_forms SET form_data = JSON_SET(form_data, '$.status', ?), updated_at=CURRENT_TIMESTAMP WHERE id=?")->execute([$patch['status'], $id]);
+            $db->prepare("INSERT INTO status_log (form_type, form_id, status) VALUES ('dissolution', ?, ?)")->execute([$id, $patch['status']]);
             jsonResponse(['message' => 'Updated']);
         }
         jsonResponse(['error' => 'Invalid patch'], 400);

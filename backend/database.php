@@ -59,6 +59,14 @@ function initSchema(PDO $db): void {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )");
+    $db->exec("CREATE TABLE IF NOT EXISTS status_log (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        form_type VARCHAR(50) NOT NULL,
+        form_id INT NOT NULL,
+        status VARCHAR(50) NOT NULL,
+        changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_form (form_type, form_id)
+    )");
     // Seed default admin if none exists
     $count = $db->query("SELECT COUNT(*) FROM users WHERE role = 'admin'")->fetchColumn();
     if ($count == 0) {

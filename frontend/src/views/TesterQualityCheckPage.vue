@@ -6,8 +6,12 @@
         <span class="form-badge">F-RD-FD-005 REV.00</span>
         <span class="tester-badge">🔬 ผู้ทดสอบ — #{{ formId }}</span>
         <span :class="['status-badge', `status-${formStatus}`]">{{ STATUS_LABELS[formStatus] }}</span>
+        <span v-if="statusChangedAt" class="status-ts-inline">{{ formatDateTime(statusChangedAt) }}</span>
       </div>
       <div class="action-right">
+        <button v-if="canAdvanceTester" class="btn-advance" @click="advanceTester">
+          {{ TESTER_ADVANCE[formStatus]?.label }}
+        </button>
         <!-- <button v-if="role !== 'sender'" class="btn-primary" :disabled="saving" @click="saveResult">
           {{ saving ? 'กำลังบันทึก...' : '💾 บันทึกผล' }}
         </button> -->
@@ -58,20 +62,27 @@
 
         <div
           v-for="param in activeParams" :key="param.key" class="param-card"
-          :class="{ 'param-done': param.key === 'appearance' ? appearanceResult.trim().length > 0 : !!uploadMap[param.key] }"
+          :class="{ 'param-done': param.key === 'appearance' ? (appearanceResult.trim().length > 0 || !!uploadMap[param.key]) : !!uploadMap[param.key] }"
         >
           <div class="param-card-left">
             <div class="param-name">{{ param.label }}</div>
 
-            <!-- Appearance: text input or readonly -->
+            <!-- Appearance: text input or readonly, plus optional file -->
             <template v-if="param.key === 'appearance'">
               <textarea v-if="!isComplete && role !== 'sender'"
                 v-model="appearanceResult"
                 class="appearance-input"
                 rows="2"
                 placeholder="บันทึกลักษณะที่สังเกตได้ เช่น สีขาว ทรงกลม เคลือบฟิล์ม..."
+                @blur="autoSaveProgress"
               ></textarea>
               <div v-else class="appearance-text-readonly">{{ appearanceResult || '-' }}</div>
+              <div v-if="uploadMap[param.key]" class="file-info" style="margin-top:6px">
+                <span class="file-icon">{{ uploadMap[param.key].original_name?.match(/\.(jpg|jpeg)$/i) ? '🖼️' : '📄' }}</span>
+                <span class="file-name">{{ uploadMap[param.key].original_name }}</span>
+                <a :href="fileUrl(uploadMap[param.key].filename)" target="_blank" class="btn-preview">ดูไฟล์</a>
+                <button v-if="!isComplete && role !== 'sender'" class="btn-remove" @click="removeUpload(param.key)">✕ ลบ</button>
+              </div>
             </template>
 
             <!-- Other params: file info -->
@@ -87,8 +98,8 @@
           </div>
 
           <div class="param-card-right">
-            <!-- Upload button: non-appearance, not complete, not sender -->
-            <label v-if="param.key !== 'appearance' && !isComplete && role !== 'sender'"
+            <!-- Upload button: all params, not complete, not sender -->
+            <label v-if="!isComplete && role !== 'sender'"
               class="upload-label" :class="{ uploaded: !!uploadMap[param.key] }">
               <input
                 type="file" accept=".pdf,.jpg,.jpeg" class="file-input"
@@ -104,13 +115,13 @@
               <label class="pass-check">
                 <input type="checkbox"
                   :checked="param_pass[param.key] === true"
-                  @change="e => { param_pass[param.key] = e.target.checked ? true : null }" />
+                  @change="e => { param_pass[param.key] = e.target.checked ? true : null; autoSaveProgress() }" />
                 ผ่าน
               </label>
               <label class="pass-check fail-check">
                 <input type="checkbox"
                   :checked="param_pass[param.key] === false"
-                  @change="e => { param_pass[param.key] = e.target.checked ? false : null }" />
+                  @change="e => { param_pass[param.key] = e.target.checked ? false : null; autoSaveProgress() }" />
                 ไม่ผ่าน
               </label>
             </template>
@@ -161,9 +172,12 @@
           <div v-if="!allCompleted" class="result-locked-notice">
             ⚠️ กรุณาอัปโหลด / บันทึกให้ครบทุกหัวข้อก่อน ({{ completedCount }}/{{ activeParams.length }})
           </div>
+          <div v-if="hasAnyParamFail" class="result-fail-forced-notice">
+            ⚠️ มีหัวข้อที่ไม่ผ่าน — ไม่สามารถเลือก "ผ่าน" ได้
+          </div>
           <div class="result-options" :class="{ 'result-locked': !allCompleted }">
-            <label class="result-opt">
-              <input type="radio" v-model="result.value" value="pass" :disabled="!allCompleted" />
+            <label class="result-opt" :class="{ 'result-opt-disabled': hasAnyParamFail }">
+              <input type="radio" v-model="result.value" value="pass" :disabled="!allCompleted || hasAnyParamFail" />
               <span class="result-text pass">ผ่าน</span>
             </label>
             <label class="result-opt">
@@ -228,6 +242,7 @@ const uploads = ref([])
 const uploadingKey = ref(null)
 const appearanceResult = ref('')
 const formStatus = ref('pending')
+const statusChangedAt = ref(null)
 
 const result = reactive({ value: '', fail_remark: '', sig_analyst: '', sig_date: '' })
 const param_pass = reactive({})
@@ -264,16 +279,53 @@ const uploadMap = computed(() => {
 const completedCount = computed(() =>
   activeParams.value.filter(p =>
     p.key === 'appearance'
-      ? appearanceResult.value.trim().length > 0
+      ? appearanceResult.value.trim().length > 0 || !!uploadMap.value[p.key]
       : !!uploadMap.value[p.key]
   ).length
 )
 const allCompleted = computed(() =>
   activeParams.value.length > 0 && completedCount.value >= activeParams.value.length
 )
+const hasAnyParamFail = computed(() =>
+  activeParams.value.some(p => param_pass[p.key] === false)
+)
+
+const TESTER_ADVANCE = {
+  pending:     { next: 'in_progress', label: 'รับงาน →' },
+  in_progress: { next: 'pending_rd',  label: 'ส่งผล →' },
+}
+
+const canAdvanceTester = computed(() =>
+  !!formId.value && !!form.value && !!TESTER_ADVANCE[formStatus.value]
+)
+
+async function advanceTester() {
+  const step = TESTER_ADVANCE[formStatus.value]
+  if (!step || !formId.value) return
+  try {
+    await api.qualityCheck.patch(formId.value, { status: step.next })
+    formStatus.value = step.next
+    if (form.value) form.value.status = step.next
+    statusChangedAt.value = new Date().toISOString().replace('T', ' ').slice(0, 16) + ':00'
+    showToast('อัปเดตสถานะสำเร็จ')
+  } catch {
+    showToast('เกิดข้อผิดพลาด', 'error')
+  }
+}
+
+watch(hasAnyParamFail, (val) => {
+  if (val && result.value === 'pass') result.value = ''
+})
 
 function fileUrl(filename) {
   return api.uploads.fileUrl(filename)
+}
+
+function formatDateTime(dt) {
+  if (!dt) return null
+  const m = String(dt).match(/^(\d{4})-(\d{2})-(\d{2})[\sT](\d{2}):(\d{2})/)
+  if (m) return `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}`
+  return null
 }
 
 function showToast(msg, type = 'success') {
@@ -293,6 +345,24 @@ async function checkAndAutoAdvance() {
   }
 }
 
+async function autoSaveProgress() {
+  if (!formId.value || !form.value) return
+  try {
+    const updated = {
+      ...form.value,
+      status: formStatus.value,
+      result: result.value,
+      fail_remark: result.fail_remark,
+      sig_analyst: result.sig_analyst,
+      sig_date: result.sig_date,
+      appearance_result: appearanceResult.value,
+      param_pass: { ...param_pass },
+    }
+    await api.qualityCheck.update(formId.value, updated)
+    form.value = updated
+  } catch { /* silent */ }
+}
+
 async function handleFileChange(param, event) {
   const file = event.target.files[0]
   if (!file) return
@@ -302,6 +372,7 @@ async function handleFileChange(param, event) {
     uploads.value = await api.uploads.list('quality_check', formId.value)
     showToast(`อัปโหลด "${param.label}" สำเร็จ`)
     await checkAndAutoAdvance()
+    await autoSaveProgress()
   } catch {
     showToast('อัปโหลดไม่สำเร็จ กรุณาตรวจสอบไฟล์', 'error')
   }
@@ -314,6 +385,7 @@ async function removeUpload(paramKey) {
   if (!u || !confirm('ยืนยันการลบไฟล์นี้?')) return
   await api.uploads.delete(u.id)
   uploads.value = await api.uploads.list('quality_check', formId.value)
+  await autoSaveProgress()
 }
 
 async function saveResult() {
@@ -344,11 +416,13 @@ onMounted(async () => {
     const res = await api.qualityCheck.get(formId.value)
     form.value = res.form_data
     formStatus.value = res.form_data.status || 'pending'
+    statusChangedAt.value = res.status_changed_at || null
     result.value = res.form_data.result || ''
     result.fail_remark = res.form_data.fail_remark || ''
     result.sig_analyst = res.form_data.sig_analyst || ''
     result.sig_date = res.form_data.sig_date || ''
     appearanceResult.value = res.form_data.appearance_result || ''
+    Object.keys(param_pass).forEach(k => delete param_pass[k])
     Object.assign(param_pass, res.form_data.param_pass || {})
     uploads.value = await api.uploads.list('quality_check', formId.value)
     await checkAndAutoAdvance()
@@ -376,6 +450,17 @@ onMounted(async () => {
 .btn-primary { background:var(--accent-orange); color:white; border:none; padding:9px 20px; border-radius:6px; cursor:pointer; font-family:inherit; font-size:14px; transition:background 0.2s; }
 .btn-primary:hover:not(:disabled) { background:var(--accent-orange-hover); }
 .btn-primary:disabled { opacity:0.6; cursor:not-allowed; }
+
+.btn-advance {
+  padding: 6px 16px; border-radius: 20px;
+  border: 1.5px solid var(--c-teal);
+  background: rgba(0,229,160,0.1); color: var(--c-teal);
+  cursor: pointer; font-size: 13px; font-weight: 600; font-family: inherit;
+  transition: background 0.15s;
+}
+.btn-advance:hover { background: rgba(0,229,160,0.22); }
+
+.status-ts-inline { font-size: 11px; color: var(--text3); white-space: nowrap; }
 
 .toast { position:fixed; top:80px; right:24px; padding:12px 20px; border-radius:8px; color:white; font-size:14px; z-index:999; }
 .toast.success { background:#2e7d32; }
@@ -461,6 +546,9 @@ onMounted(async () => {
 .readonly-val { color:var(--text-label); font-weight:500; }
 .readonly-sig { padding-top:12px; border-top:1px solid var(--border-divider); flex-direction:column; align-items:flex-start; gap:4px; }
 .result-locked-notice { background:var(--accent-orange-light); color:var(--accent-orange); padding:10px 14px; border-radius:8px; font-size:13px; font-weight:600; margin-bottom:12px; }
+.result-fail-forced-notice { background:#fee2e2; color:#991b1b; padding:10px 14px; border-radius:8px; font-size:13px; font-weight:600; margin-bottom:12px; border:1px solid #fca5a5; }
+.result-opt-disabled { opacity:0.4; cursor:not-allowed; }
+.result-opt-disabled input { cursor:not-allowed; }
 .result-options { display:flex; gap:32px; margin:14px 0; }
 .result-locked .result-opt { opacity:0.4; cursor:not-allowed; }
 .result-locked .result-opt input { cursor:not-allowed; }

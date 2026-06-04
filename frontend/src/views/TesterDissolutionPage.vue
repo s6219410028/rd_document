@@ -5,12 +5,14 @@
         <router-link to="/records" class="back-btn">← รายการทั้งหมด</router-link>
         <span class="form-badge">F-RD-FD-006 REV.00</span>
         <span class="tester-badge">🔬 ผู้ทดสอบ — #{{ formId }}</span>
+        <span v-if="form" :class="['status-badge', `status-${formStatus}`]">{{ TESTER_STATUS_LABELS[formStatus] }}</span>
+        <span v-if="statusChangedAt" class="status-ts-inline">{{ formatDateTime(statusChangedAt) }}</span>
       </div>
-      <!-- <div class="action-right">
-        <button v-if="role !== 'sender'" class="btn-primary" :disabled="saving" @click="saveResult">
-          {{ saving ? 'กำลังบันทึก...' : '💾 บันทึกผล' }}
+      <div class="action-right">
+        <button v-if="canAdvanceTester" class="btn-advance" @click="advanceTester">
+          {{ TESTER_ADVANCE[formStatus]?.label }}
         </button>
-      </div> -->
+      </div>
     </div>
 
     <div v-if="toast" class="toast" :class="toast.type">{{ toast.msg }}</div>
@@ -27,10 +29,6 @@
             <div class="summary-number">{{ form.analysis_number || '-' }}</div>
           </div>
           <div class="summary-meta-right">
-            <div class="meta-row"><span class="meta-label">ผู้ส่งวิเคราะห์</span><span class="meta-val">{{ form.sender
-              || '-' }}</span></div>
-            <div class="meta-row"><span class="meta-label">วันที่ส่ง</span><span class="meta-val">{{ form.send_date ||
-              '-' }}</span></div>
             <div v-if="form.urgency_level" class="meta-row">
               <span class="meta-label">ความเร่งด่วน</span>
               <span :class="['urgency-chip', `urg-${form.urgency_level}`]">{{ URGENCY_LABELS[form.urgency_level] ||
@@ -117,6 +115,18 @@
 
       </div>
 
+      <!-- Sender info (read-only) -->
+      <div class="sender-info-card">
+        <div class="sender-info-row">
+          <span class="sender-info-label">ผู้ส่งวิเคราะห์:</span>
+          <span class="sender-info-val">{{ form.sender || '-' }}</span>
+        </div>
+        <div class="sender-info-row">
+          <span class="sender-info-label">วันที่ส่งวิเคราะห์:</span>
+          <span class="sender-info-val">{{ form.send_date || '-' }}</span>
+        </div>
+      </div>
+
       <div class="conditions-card">
         <div class="field-row" style="align-items:flex-start">
           <label class="cond-label" style="padding-top:6px">วิธีการเตรียม:</label>
@@ -128,7 +138,7 @@
           <label class="cond-label">โดย:</label>
           <input v-model="form.prepared_by" type="text" class="input-field" style="width:160px" />
           <label style="margin-left:16px;font-size:13px;color:var(--text3)">วันที่:</label>
-          <input v-model="form.prepared_date" type="date" class="input-field" style="width:160px" />
+          <DateInput v-model="form.prepared_date" style="width:160px" />
         </div>
       </div>
 
@@ -181,7 +191,7 @@
           <div class="sig-group">
             <label>วันที่สังเกต:</label>
             <span v-if="role === 'sender'" class="readonly-val">{{ tester.observed_date || '-' }}</span>
-            <input v-else v-model="tester.observed_date" type="date" class="input-field" style="width:160px" />
+            <DateInput v-else v-model="tester.observed_date" style="width:160px" />
           </div>
         </div>
 
@@ -207,7 +217,7 @@
           <div class="sig-group">
             <label>วันที่วิเคราะห์:</label>
             <span v-if="role === 'sender'" class="readonly-val">{{ tester.analysis_date || '-' }}</span>
-            <input v-else v-model="tester.analysis_date" type="date" class="input-field" style="width:160px" />
+            <DateInput v-else v-model="tester.analysis_date" style="width:160px" />
           </div>
         </div>
       </div>
@@ -232,8 +242,21 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { api } from '../api/index.js'
 import { useAuth } from '../composables/useAuth.js'
+import DateInput from '../components/DateInput.vue'
 
 const URGENCY_LABELS = { '3': 'สูง (High)', '2': 'ปานกลาง (Medium)', '1': 'ต่ำ (Low)' }
+
+const TESTER_STATUS_LABELS = {
+  pending:     'ส่งวิเคราะห์',
+  in_progress: 'รอผลการวิเคราะห์',
+  pending_rd:  'รอรับผล',
+  complete:    'รับผลเรียบร้อย',
+}
+
+const TESTER_ADVANCE = {
+  pending:     { next: 'in_progress', label: 'รับงาน →' },
+  in_progress: { next: 'pending_rd',  label: 'ส่งผล →' },
+}
 
 const props = defineProps({ id: String })
 const route = useRoute()
@@ -246,6 +269,26 @@ const toast = ref(null)
 const form = ref(null)
 const uploads = ref([])
 const uploading = ref(false)
+const formStatus = ref('pending')
+const statusChangedAt = ref(null)
+
+const canAdvanceTester = computed(() =>
+  !!formId.value && !!form.value && !!TESTER_ADVANCE[formStatus.value]
+)
+
+async function advanceTester() {
+  const step = TESTER_ADVANCE[formStatus.value]
+  if (!step || !formId.value) return
+  try {
+    await api.dissolution.patch(formId.value, { status: step.next })
+    formStatus.value = step.next
+    if (form.value) form.value.status = step.next
+    statusChangedAt.value = new Date().toISOString().replace('T', ' ').slice(0, 16) + ':00'
+    showToast('อัปเดตสถานะสำเร็จ')
+  } catch {
+    showToast('เกิดข้อผิดพลาด', 'error')
+  }
+}
 
 const tester = reactive({
   observation: '',
@@ -258,6 +301,13 @@ const tester = reactive({
 
 function fileUrl(filename) {
   return api.uploads.fileUrl(filename)
+}
+
+function formatDateTime(dt) {
+  if (!dt) return null
+  const m = String(dt).match(/^(\d{4})-(\d{2})-(\d{2})[\sT](\d{2}):(\d{2})/)
+  if (m) return `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}`
+  return null
 }
 
 function showToast(msg, type = 'success') {
@@ -317,6 +367,8 @@ onMounted(async () => {
   try {
     const res = await api.dissolution.get(formId.value)
     form.value = res.form_data
+    formStatus.value = res.form_data.status || 'pending'
+    statusChangedAt.value = res.status_changed_at || null
     // Migrate apparatus from old object format {basket,paddle,franz} to string
     const ap = form.value.apparatus
     if (ap && typeof ap === 'object') {
@@ -385,6 +437,28 @@ onMounted(async () => {
   border-radius: 20px;
   border: 1px solid rgba(52, 211, 153, 0.3);
 }
+
+.status-badge { font-size:12px; font-weight:700; padding:3px 10px; border-radius:20px; white-space:nowrap; }
+.status-pending     { background:#fef3c7; color:#d97706; }
+.status-in_progress { background:#dbeafe; color:#2563eb; }
+.status-pending_rd  { background:#f3e8ff; color:#7c3aed; }
+.status-complete    { background:#d1fae5; color:#059669; }
+
+.btn-advance {
+  padding: 6px 16px;
+  border-radius: 20px;
+  border: 1.5px solid var(--c-teal);
+  background: rgba(0, 229, 160, 0.1);
+  color: var(--c-teal);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.btn-advance:hover { background: rgba(0, 229, 160, 0.22); }
+
+.status-ts-inline { font-size: 11px; color: var(--text3); white-space: nowrap; }
 
 .btn-primary {
   background: var(--accent-green);
@@ -850,6 +924,32 @@ onMounted(async () => {
   border: none;
   border-top: 1px solid var(--border);
   margin: 16px 0;
+}
+
+/* ── Sender info (between condition box and วิธีการเตรียม) ── */
+.sender-info-card {
+  display: flex;
+  gap: 32px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  background: var(--bg-section);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+}
+.sender-info-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+.sender-info-label {
+  font-weight: 600;
+  color: var(--text-label);
+  white-space: nowrap;
+}
+.sender-info-val {
+  color: var(--text-primary);
 }
 
 /* ── Conditions card ── */

@@ -8,6 +8,7 @@
         <span v-if="editId" :class="['status-badge', `status-${form.status || 'pending'}`]">
           {{ STATUS_MAP[form.status || 'pending'].label }}
         </span>
+        <span v-if="editId && statusChangedAt" class="status-ts-inline">{{ formatDateTime(statusChangedAt) }}</span>
       </div>
       <div class="action-right">
         <button v-if="canAdvance" class="btn-advance" @click="advanceStatus">
@@ -21,7 +22,7 @@
 
     <div v-if="toast" class="toast" :class="toast.type">{{ toast.msg }}</div>
 
-    <div class="form-card" :class="{ 'form-locked': !isEditable }">
+    <div class="form-card" :class="{ 'form-locked': !isBottomEditable }">
       <!-- Header -->
       <div class="form-header">
         <div class="company-name">T.MAN PHARMA CO., LTD.</div>
@@ -32,10 +33,14 @@
         <div class="form-number-block">F-RD-FD-006 REV.01</div>
       </div>
 
-      <div v-if="editId && !isEditable" class="lock-notice">
+      <div v-if="editId && !isTopEditable && isBottomEditable" class="partial-lock-notice">
+        🔒 ผู้ทดสอบรับงานแล้ว — ข้อมูลและเงื่อนไขด้านบนล็อค แก้ไขได้เฉพาะส่วนวิธีการเตรียม
+      </div>
+      <div v-else-if="editId && !isBottomEditable" class="lock-notice">
         🔒 ฟอร์มนี้อยู่ในสถานะ <strong>{{ STATUS_MAP[form.status]?.label }}</strong> — ไม่สามารถแก้ไขได้
       </div>
 
+      <div :class="{ 'section-locked': !isTopEditable }">
       <!-- Analysis number -->
       <div class="top-right-field">
         <label>เลขที่ใบส่งวิเคราะห์:</label>
@@ -50,12 +55,12 @@
       </div>
 
       <!-- Our products section -->
-      <div class="sub-section-title">ผลิตภัณฑ์ที่ส่งวิเคราะห์</div>
+      <div class="sub-section-title">ผลิตภัณฑ์ที่ส่งวิเคราะห์ <span class="req">*</span></div>
       <div v-for="(p, i) in form.our_products" :key="i" class="product-entry">
         <div class="product-name-row">
           <div class="field-group" style="flex:1">
             <label>ชื่อผลิตภัณฑ์:</label>
-            <input v-model="p.product_name" type="text" class="input-field flex-1" />
+            <input v-model="p.product_name" type="text" class="input-field flex-1" :class="{ 'input-error': formErrors.our_products && !p.product_name?.trim() }" />
           </div>
           <button v-if="form.our_products.length > 1" class="btn-remove-row no-print" @click="removeOurProduct(i)"
             title="ลบแถวนี้">✕</button>
@@ -83,6 +88,7 @@
       <div class="btn-add-row-wrap no-print">
         <button class="btn-add-row" @click="addOurProduct">+ เพิ่มผลิตภัณฑ์</button>
       </div>
+      <p v-if="formErrors.our_products" class="field-error">{{ formErrors.our_products }}</p>
 
       <hr class="divider" />
 
@@ -134,19 +140,21 @@
       <!-- Condition Box -->
       <div class="condition-box">
         <div class="field-row">
-          <label class="field-label">Condition : Reference</label>
-          <input v-model="form.condition_reference" type="text" class="input-field flex-1" />
+          <label class="field-label">Condition : Reference <span class="req">*</span></label>
+          <input v-model="form.condition_reference" type="text" class="input-field flex-1" :class="{ 'input-error': formErrors.condition_reference }" />
         </div>
+        <p v-if="formErrors.condition_reference" class="field-error">{{ formErrors.condition_reference }}</p>
         <div class="field-row">
-          <label class="field-label">Medium:</label>
-          <input v-model="form.medium" type="text" class="input-field flex-1" />
+          <label class="field-label">Medium: <span class="req">*</span></label>
+          <input v-model="form.medium" type="text" class="input-field flex-1" :class="{ 'input-error': formErrors.medium }" />
           <label style="margin-left:16px">ปริมาตร:</label>
           <input v-model="form.medium_volume" type="text" class="input-field" style="width:80px" />
           <span class="unit-text">mL</span>
         </div>
+        <p v-if="formErrors.medium" class="field-error">{{ formErrors.medium }}</p>
 
         <div class="field-row checkbox-row" style="flex-wrap:wrap;gap:16px">
-          <label class="field-label">Apparatus:</label>
+          <label class="field-label">Apparatus: <span class="req">*</span></label>
           <label class="checkbox-label">
             <input type="radio" v-model="form.apparatus" value="basket" />
             Apparatus I (Basket)
@@ -160,25 +168,45 @@
             Franz diffusion cell (Model C)
           </label>
         </div>
+        <p v-if="formErrors.apparatus" class="field-error">{{ formErrors.apparatus }}</p>
         <div class="field-row">
-          <label class="field-label">RPM:</label>
-          <input v-model="form.rpm" type="text" class="input-field" style="width:80px" />
+          <label class="field-label">RPM: <span class="req">*</span></label>
+          <input v-model="form.rpm" type="text" class="input-field" style="width:80px" :class="{ 'input-error': formErrors.rpm }" />
           <label style="margin-left:16px">%Induction:</label>
           <input v-model="form.induction" type="text" class="input-field" style="width:80px" />
           <label style="margin-left:16px">Temperature:</label>
           <input v-model="form.temperature" type="text" class="input-field" style="width:80px" />
           <span class="unit-text">°C</span>
         </div>
+        <p v-if="formErrors.rpm" class="field-error">{{ formErrors.rpm }}</p>
         <div class="field-row">
-          <label class="field-label">Sampling time:</label>
-          <input v-model="form.sampling_time" type="text" class="input-field flex-1" />
+          <label class="field-label">Sampling time: <span class="req">*</span></label>
+          <input v-model="form.sampling_time" type="text" class="input-field flex-1" :class="{ 'input-error': formErrors.sampling_time }" />
+        </div>
+        <p v-if="formErrors.sampling_time" class="field-error">{{ formErrors.sampling_time }}</p>
+      </div>
+      </div><!-- end section-locked -->
+
+      <!-- Sender info -->
+      <div class="sender-row">
+        <div class="field-group">
+          <label>ผู้ส่งวิเคราะห์:</label>
+          <input v-model="form.sender" type="text" class="input-field" style="width:180px" :class="{ 'input-error': formErrors.sender }" />
+          <span v-if="formErrors.sender" class="field-error" style="margin-left:4px">{{ formErrors.sender }}</span>
+        </div>
+        <div class="field-group">
+          <label>วันที่ส่งวิเคราะห์:</label>
+          <DateInput v-model="form.send_date" @update:modelValue="onSendDateChange" :class="{ 'input-error': formErrors.send_date }" />
+          <span v-if="formErrors.send_date" class="field-error" style="margin-left:4px">{{ formErrors.send_date }}</span>
         </div>
       </div>
+
       <hr class="divider" />
       <div class="field-row" style="margin-top:16px">
         <label class="field-label">วิธีการเตรียม:</label>
-        <textarea v-model="form.preparation_method" class="input-textarea flex-1" rows="2"></textarea>
+        <textarea v-model="form.preparation_method" class="input-textarea flex-1" rows="2" :class="{ 'input-error': formErrors.preparation_method }"></textarea>
       </div>
+      <p v-if="formErrors.preparation_method" class="field-error">{{ formErrors.preparation_method }}</p>
       <div class="condition-footer">
         <div class="field-group" style="margin-top:16px">
           <label>โดย:</label>
@@ -191,15 +219,20 @@
       </div>
 
 
-      <!-- Sender info -->
-      <div class="sender-row" style="margin-top:16px">
-        <div class="field-group" style="margin-top:16px">
-          <label>ผู้ส่งวิเคราะห์:</label>
-          <input v-model="form.sender" type="text" class="input-field" style="width:180px" />
-        </div>
-        <div class="field-group">
-          <label>วันที่ส่งวิเคราะห์:</label>
-          <DateInput v-model="form.send_date" @update:modelValue="onSendDateChange" />
+
+      <hr class="divider" />
+
+      <!-- Uploaded reports from tester (read-only) -->
+      <div v-if="editId" class="pdf-section no-print">
+        <div class="pdf-section-title">รายงาน PDF จากผู้ทดสอบ</div>
+        <div v-if="uploads.length === 0" class="pdf-none">ยังไม่มีรายงาน</div>
+        <div v-for="(u, i) in uploads" :key="u.id" class="pdf-row">
+          <span class="pdf-seq">{{ i + 1 }}</span>
+          <span class="pdf-icon">{{ u.original_name?.match(/\.(jpg|jpeg)$/i) ? '🖼️' : '📄' }}</span>
+          <span class="pdf-filename">{{ u.original_name }}</span>
+          <a :href="api.uploads.fileUrl(u.filename)" target="_blank" class="pdf-btn pdf-open">เปิดใน Browser</a>
+          <a :href="api.uploads.fileUrl(u.filename)" :download="u.original_name"
+            class="pdf-btn pdf-download">ดาวน์โหลด</a>
         </div>
       </div>
 
@@ -261,7 +294,7 @@
           <option value="1">1 ต่ำ (Low)</option>
         </select>
       </div>
-      <button v-if="isEditable" class="btn-primary" :disabled="saving" @click="saveForm">
+      <button v-if="isBottomEditable" class="btn-primary" :disabled="saving" @click="saveForm">
         {{ saving ? 'กำลังบันทึก...' : (editId ? '💾 อัปเดต' : '💾 บันทึก') }}
       </button>
 
@@ -293,6 +326,8 @@ const route = useRoute()
 const saving = ref(false)
 const toast = ref(null)
 const editId = ref(null)
+const uploads = ref([])
+const statusChangedAt = ref(null)
 
 const urgencyClass = computed(() => {
   if (form.urgency_level === '3') return 'urgency-high'
@@ -348,9 +383,48 @@ function blankForm() {
 const form = reactive(blankForm())
 const { role } = useAuth()
 
-const isEditable = computed(() => !editId.value || form.status === 'pending')
+const isTopEditable    = computed(() => !editId.value || form.status === 'pending')
+const isBottomEditable = computed(() => !editId.value || form.status === 'pending' || form.status === 'in_progress')
+
+const formErrors = reactive({
+  our_products: '', condition_reference: '', medium: '', apparatus: '',
+  rpm: '', sampling_time: '', sender: '', send_date: '', preparation_method: '',
+})
+
+function validateForm() {
+  Object.keys(formErrors).forEach(k => { formErrors[k] = '' })
+  let valid = true
+  if (!form.our_products.some(p => p.product_name?.trim())) {
+    formErrors.our_products = 'กรุณากรอกชื่อผลิตภัณฑ์ที่ส่งวิเคราะห์อย่างน้อย 1 รายการ'; valid = false
+  }
+  if (!form.condition_reference?.trim()) {
+    formErrors.condition_reference = 'กรุณากรอก Condition Reference'; valid = false
+  }
+  if (!form.medium?.trim()) {
+    formErrors.medium = 'กรุณากรอก Medium'; valid = false
+  }
+  if (!form.apparatus) {
+    formErrors.apparatus = 'กรุณาเลือก Apparatus'; valid = false
+  }
+  if (!form.rpm?.trim()) {
+    formErrors.rpm = 'กรุณากรอก RPM'; valid = false
+  }
+  if (!form.sampling_time?.trim()) {
+    formErrors.sampling_time = 'กรุณากรอก Sampling time'; valid = false
+  }
+  if (!form.sender?.trim()) {
+    formErrors.sender = 'กรุณากรอกชื่อผู้ส่งวิเคราะห์'; valid = false
+  }
+  if (!form.send_date?.trim()) {
+    formErrors.send_date = 'กรุณาเลือกวันที่ส่งวิเคราะห์'; valid = false
+  }
+  if (!form.preparation_method?.trim()) {
+    formErrors.preparation_method = 'กรุณากรอกวิธีการเตรียม'; valid = false
+  }
+  return valid
+}
 const canAdvance = computed(() =>
-  !!editId.value && role.value !== 'tester' && !!STATUS_MAP[form.status || 'pending']?.next
+  !!editId.value && role.value !== 'tester' && form.status === 'pending_rd'
 )
 
 async function advanceStatus() {
@@ -359,6 +433,7 @@ async function advanceStatus() {
   try {
     await api.dissolution.patch(editId.value, { status: next })
     form.status = next
+    statusChangedAt.value = new Date().toISOString().replace('T', ' ').slice(0, 16) + ':00'
     showToast('อัปเดตสถานะสำเร็จ')
   } catch {
     showToast('เกิดข้อผิดพลาด', 'error')
@@ -408,12 +483,20 @@ function printForm() {
   window.print()
 }
 
+function formatDateTime(dt) {
+  if (!dt) return null
+  const m = String(dt).match(/^(\d{4})-(\d{2})-(\d{2})[\sT](\d{2}):(\d{2})/)
+  if (m) return `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}`
+  return null
+}
+
 function showToast(msg, type = 'success') {
   toast.value = { msg, type }
   setTimeout(() => { toast.value = null }, 3000)
 }
 
 async function saveForm() {
+  if (!validateForm()) return
   if (editId.value) {
     if (!confirm(`ยืนยันการบันทึกทับข้อมูลรายการ #${editId.value}?\nข้อมูลเดิมจะถูกแทนที่และไม่สามารถกู้คืนได้`)) return
   }
@@ -447,9 +530,11 @@ onMounted(async () => {
     try {
       const res = await api.dissolution.get(id)
       editId.value = res.id
+      statusChangedAt.value = res.status_changed_at || null
       Object.keys(res.form_data).forEach(k => { if (k in form) form[k] = res.form_data[k] })
       const m = form.analysis_number?.match(/^RD(\d{2})-(\d+)\/(\d{2})$/)
       if (m) { runYear.value = m[1]; runSeq.value = String(m[2]).padStart(3, '0'); runMonth.value = m[3] }
+      uploads.value = await api.uploads.list('dissolution', id)
     } catch {
       showToast('ไม่พบข้อมูล', 'error')
     }
@@ -542,6 +627,8 @@ onMounted(async () => {
   color: #059669;
 }
 
+.status-ts-inline { font-size: 11px; color: var(--text3); white-space: nowrap; }
+
 .btn-advance {
   padding: 6px 16px;
   border-radius: 20px;
@@ -559,6 +646,20 @@ onMounted(async () => {
   background: rgba(0, 229, 160, 0.22);
 }
 
+.req { color: #dc2626; font-size: 13px; font-weight: 700; }
+
+.field-error {
+  color: #dc2626;
+  font-size: 12px;
+  font-weight: 500;
+  margin: 2px 0 6px 0;
+  display: block;
+}
+
+.input-error {
+  border-bottom-color: #dc2626 !important;
+}
+
 .lock-notice {
   background: #fffbeb;
   border: 1px solid #fcd34d;
@@ -567,6 +668,28 @@ onMounted(async () => {
   font-size: 13px;
   color: #92400e;
   margin-bottom: 16px;
+}
+
+.partial-lock-notice {
+  background: #eff6ff;
+  border: 1px solid #93c5fd;
+  border-radius: var(--r-sm);
+  padding: 10px 16px;
+  font-size: 13px;
+  color: #1d4ed8;
+  margin-bottom: 16px;
+}
+
+.section-locked input:not([type="file"]),
+.section-locked textarea,
+.section-locked select,
+.section-locked .checkbox-label {
+  pointer-events: none;
+  opacity: 0.6;
+}
+.section-locked .btn-add-row,
+.section-locked .btn-remove-row {
+  display: none;
 }
 
 .form-card.form-locked input:not([type="file"]),
@@ -1020,12 +1143,96 @@ label {
   color: #16a34a;
 }
 
+/* ── PDF reports section ── */
+.pdf-section {
+  margin: 16px 0;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 14px 16px;
+  background: var(--bg-section);
+}
+
+.pdf-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent-green);
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-divider);
+}
+
+.pdf-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border-light);
+  flex-wrap: wrap;
+}
+
+.pdf-row:last-child {
+  border-bottom: none;
+}
+
+.pdf-seq {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text3);
+  min-width: 20px;
+}
+
+.pdf-icon {
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.pdf-filename {
+  font-size: 13px;
+  color: var(--text2);
+  flex: 1;
+  min-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pdf-btn {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 20px;
+  text-decoration: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+
+.pdf-btn:hover {
+  opacity: 0.8;
+}
+
+.pdf-open {
+  background: var(--accent-green-light);
+  color: var(--accent-green);
+}
+
+.pdf-download {
+  background: var(--accent-blue-light);
+  color: var(--c-blue);
+}
+
+.pdf-none {
+  font-size: 13px;
+  color: var(--text3);
+  font-style: italic;
+}
+
 /* ── Print button ── */
 .btn-print {
   padding: 7px 18px;
   border-radius: 20px;
   border: 1.5px solid #6366f1;
-  background: rgba(99,102,241,0.08);
+  background: rgba(99, 102, 241, 0.08);
   color: #6366f1;
   cursor: pointer;
   font-size: 13px;
@@ -1033,11 +1240,17 @@ label {
   font-family: inherit;
   transition: background 0.15s;
 }
-.btn-print:hover { background: rgba(99,102,241,0.18); }
+
+.btn-print:hover {
+  background: rgba(99, 102, 241, 0.18);
+}
 
 /* ── Print layout ── */
 @media print {
-  @page { size: A4; margin: 14mm 14mm; }
+  @page {
+    size: A4;
+    margin: 14mm 14mm;
+  }
 
   .form-card {
     padding: 0 !important;
@@ -1053,12 +1266,28 @@ label {
   .form-header {
     border: 2px solid #333 !important;
   }
-  .company-name      { border-right: 2px solid #333 !important; color: #000 !important; background: #fff !important; }
-  .form-title-block  { border-right: 2px solid #333 !important; color: #000 !important; background: #fff !important; }
-  .form-number-block { color: #000 !important; background: #fff !important; }
+
+  .company-name {
+    border-right: 2px solid #333 !important;
+    color: #000 !important;
+    background: #fff !important;
+  }
+
+  .form-title-block {
+    border-right: 2px solid #333 !important;
+    color: #000 !important;
+    background: #fff !important;
+  }
+
+  .form-number-block {
+    color: #000 !important;
+    background: #fff !important;
+  }
 
   /* All text black */
-  * { color: #000 !important; }
+  * {
+    color: #000 !important;
+  }
 
   /* Inputs show as underlined text */
   input:not([type="checkbox"]):not([type="radio"]),
@@ -1090,36 +1319,76 @@ label {
   }
 
   /* Checkboxes and radios stay visible */
-  input[type="checkbox"], input[type="radio"] {
+  input[type="checkbox"],
+  input[type="radio"] {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
 
   /* Condition box keeps border */
-  .condition-box { border: 2px solid #ccc !important; background: #fff !important; }
+  .condition-box {
+    border: 2px solid #ccc !important;
+    background: #fff !important;
+  }
 
   /* Section title bars */
-  .sub-section-title { background: #f0f9f0 !important; border-left: 3px solid #333 !important; }
+  .sub-section-title {
+    background: #f0f9f0 !important;
+    border-left: 3px solid #333 !important;
+  }
 
   /* Locked form: remove dim so values print clearly */
   .form-card.form-locked input,
   .form-card.form-locked textarea,
   .form-card.form-locked select,
-  .form-card.form-locked .checkbox-label { opacity: 1 !important; }
+  .form-card.form-locked .checkbox-label {
+    opacity: 1 !important;
+  }
 
-  /* Remove lock-notice banner */
-  .lock-notice { display: none !important; }
+  /* Remove lock-notice banners and validation errors */
+  .lock-notice,
+  .partial-lock-notice,
+  .field-error,
+  .req {
+    display: none !important;
+  }
+
+  /* section-locked: restore opacity for print */
+  .section-locked input:not([type="file"]),
+  .section-locked textarea,
+  .section-locked select,
+  .section-locked .checkbox-label {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
 
   /* Dividers */
-  .divider { border-top: 1px solid #999 !important; }
+  .divider {
+    border-top: 1px solid #999 !important;
+  }
 
   /* ── Font size: -3px across print layout ── */
-  .company-name, .sub-section-title, .run-static,
+  .company-name,
+  .sub-section-title,
+  .run-static,
   input:not([type="checkbox"]):not([type="radio"]),
-  select, textarea, .checkbox-label,
-  .result-label                                    { font-size: 11px !important; }
-  label                                            { font-size: 10px !important; }
-  .form-title-block                                { font-size: 12px !important; }
-  .form-number-block                               { font-size: 10px !important; }
+  select,
+  textarea,
+  .checkbox-label,
+  .result-label {
+    font-size: 11px !important;
+  }
+
+  label {
+    font-size: 10px !important;
+  }
+
+  .form-title-block {
+    font-size: 12px !important;
+  }
+
+  .form-number-block {
+    font-size: 10px !important;
+  }
 }
 </style>

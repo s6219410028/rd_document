@@ -74,7 +74,7 @@ export const api = {
     upload:  (formType, formId, paramKey, paramLabel, file) =>
                upload(formType, formId, paramKey, paramLabel, file),
     delete:  (id)               => request('DELETE', `/upload/${id}`),
-    fileUrl: (filename)         => `${BASE}/uploads/${filename}`,
+    fileUrl: (filename)         => `/backend/uploads/${filename}`,
   },
   qualityCheck: {
     list:   ()           => request('GET',    '/quality_check'),
